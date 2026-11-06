@@ -3,251 +3,302 @@ package com.example.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.model.AutomationDto
-import com.example.data.model.AutomationLogDto
-import com.example.data.model.BalanceHistoryItem
-import com.example.data.model.CategoryDto2
+import com.example.data.model.AutomationConfigDto
+import com.example.data.model.ConfirmPendingTransactionRequest
+import com.example.data.model.DismissPendingTransactionRequest
 import com.example.data.model.PendingTransactionDto
+import com.example.data.model.RailwayPairRequest
+import com.example.data.model.RailwayStatusResponse
 import com.example.data.model.RealBalanceResponse
-import com.example.data.model.RwWhatsAppDto
-import com.example.data.sbi.Outcome
-import com.example.data.sbi.SbiRepository
+import com.example.data.model.TransactionType
+import com.example.data.model.UpdateAutomationConfigRequest
+import com.example.data.remote.NetworkClient
+import com.example.data.repository.FinancialRepository
+import com.example.util.NotificationHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-/** State holder for WhatsApp linking, automation settings, balance and the pending-transaction queue. */
-class StatementAutomationViewModel(app: Application) : AndroidViewModel(app) {
-  private val repo = SbiRepository(app)
+class StatementAutomationViewModel(application: Application) : AndroidViewModel(application) {
+  val repository = FinancialRepository(application)
 
-  private val _pending = MutableStateFlow<List<PendingTransactionDto>>(repo.cachedPending())
-  val pendingTransactions: StateFlow<List<PendingTransactionDto>> = _pending.asStateFlow()
+  private val _pendingTransactions = MutableStateFlow<List<PendingTransactionDto>>(emptyList())
+  val pendingTransactions: StateFlow<List<PendingTransactionDto>> = _pendingTransactions.asStateFlow()
 
-  private val _balance = MutableStateFlow<RealBalanceResponse?>(null)
-  val realBalance: StateFlow<RealBalanceResponse?> = _balance.asStateFlow()
+  private val _realBalance = MutableStateFlow<RealBalanceResponse?>(null)
+  val realBalance: StateFlow<RealBalanceResponse?> = _realBalance.asStateFlow()
 
-  private val _whatsapp = MutableStateFlow(RwWhatsAppDto())
-  val whatsapp: StateFlow<RwWhatsAppDto> = _whatsapp.asStateFlow()
+  private val _automationConfig = MutableStateFlow<AutomationConfigDto?>(null)
+  val automationConfig: StateFlow<AutomationConfigDto?> = _automationConfig.asStateFlow()
 
-  private val _automation = MutableStateFlow<AutomationDto?>(null)
-  val automation: StateFlow<AutomationDto?> = _automation.asStateFlow()
-
-  private val _logs = MutableStateFlow<List<AutomationLogDto>>(emptyList())
-  val logs: StateFlow<List<AutomationLogDto>> = _logs.asStateFlow()
-
-  private val _history = MutableStateFlow<List<BalanceHistoryItem>>(emptyList())
-  val history: StateFlow<List<BalanceHistoryItem>> = _history.asStateFlow()
-
-  private val _categories = MutableStateFlow<List<CategoryDto2>>(SbiRepository.BUILTIN_CATEGORIES)
-  val categories: StateFlow<List<CategoryDto2>> = _categories.asStateFlow()
-
-  private val _storagePersistent = MutableStateFlow(true)
-  val storagePersistent: StateFlow<Boolean> = _storagePersistent.asStateFlow()
+  private val _railwayStatus = MutableStateFlow<RailwayStatusResponse?>(null)
+  val railwayStatus: StateFlow<RailwayStatusResponse?> = _railwayStatus.asStateFlow()
 
   private val _pairingCode = MutableStateFlow<String?>(null)
   val pairingCode: StateFlow<String?> = _pairingCode.asStateFlow()
 
-  private val _busy = MutableStateFlow(false)
-  val busy: StateFlow<Boolean> = _busy.asStateFlow()
+  private val _isLoading = MutableStateFlow(false)
+  val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-  /** Latest user-visible problem (cleared with clearError). Never silent: offline / server errors show here. */
-  private val _error = MutableStateFlow<String?>(null)
-  val error: StateFlow<String?> = _error.asStateFlow()
+  private val _statusMessage = MutableStateFlow<String?>(null)
+  val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
 
-  private val _info = MutableStateFlow<String?>(null)
-  val info: StateFlow<String?> = _info.asStateFlow()
+  private val _errorMessage = MutableStateFlow<String?>(null)
+  val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-  private val _authRequired = MutableStateFlow(false)
-  val authRequired: StateFlow<Boolean> = _authRequired.asStateFlow()
-
-  fun clearError() { _error.value = null }
-  fun clearInfo() { _info.value = null }
-  fun currentRailwayUrl(): String? = repo.currentRailwayUrl()
-  fun setRailwayUrl(url: String) { repo.setRailwayUrlManually(url) }
-
-  private fun <T> handleFailure(o: Outcome<T>): Boolean {
-    when (o) {
-      is Outcome.Offline -> _error.value = "You are offline. ${o.message}"
-      is Outcome.AuthRequired -> _authRequired.value = true
-      is Outcome.Failed -> _error.value = o.message
-      is Outcome.Ok -> return false
-    }
-    return true
+  init {
+    loadPendingTransactions()
+    loadRealBalance()
+    loadAutomationConfig()
   }
 
-  // ------------------------------------------------------------ overview / balance
-  fun refreshOverview() {
+  fun loadPendingTransactions() {
     viewModelScope.launch {
-      val o = repo.overview()
-      if (o is Outcome.Ok) {
-        _automation.value = o.data.automation
-        _balance.value = o.data.balance
-        _whatsapp.value = _whatsapp.value.copy(
-          state = if (_whatsapp.value.state in listOf("QR_READY", "PAIRING_CODE_READY", "CONNECTING")) _whatsapp.value.state else o.data.whatsapp.status,
-          connected = o.data.whatsapp.status == "CONNECTED",
-          phoneMasked = o.data.whatsapp.phoneMasked,
-          lastError = o.data.whatsapp.lastError
+      try {
+        val res = NetworkClient.apiService.getPendingTransactions()
+        if (res.isSuccessful && res.body()?.success == true) {
+          val list = res.body()?.items ?: emptyList()
+          val prevCount = _pendingTransactions.value.size
+          _pendingTransactions.value = list
+
+          // If new transactions arrived and app was in background or reconnected, trigger notification
+          if (list.isNotEmpty() && list.size > prevCount) {
+            val latest = list.firstOrNull()
+            NotificationHelper.showPendingTransactionsNotification(
+              getApplication(),
+              list.size,
+              latest?.amount
+            )
+          }
+        }
+      } catch (_: Exception) {}
+    }
+  }
+
+  fun loadRealBalance() {
+    viewModelScope.launch {
+      try {
+        val res = NetworkClient.apiService.getRealBalance()
+        if (res.isSuccessful && res.body()?.success == true) {
+          _realBalance.value = res.body()
+        }
+      } catch (_: Exception) {}
+    }
+  }
+
+  fun loadAutomationConfig() {
+    viewModelScope.launch {
+      try {
+        val res = NetworkClient.apiService.getAutomationConfig()
+        if (res.isSuccessful && res.body()?.success == true) {
+          val body = res.body()!!
+          _automationConfig.value = AutomationConfigDto(
+            sbiTargetPhone = body.sbiTargetPhone,
+            intervalMinutes = body.intervalMinutes,
+            isEnabled = body.isEnabled,
+            railwayApiUrl = body.railwayApiUrl,
+            lastRunAt = body.lastRunAt,
+            lastStatus = body.lastStatus
+          )
+        }
+      } catch (_: Exception) {}
+    }
+  }
+
+  fun confirmPendingTransaction(
+    item: PendingTransactionDto,
+    categoryName: String,
+    purpose: String?,
+    onSuccess: () -> Unit
+  ) {
+    viewModelScope.launch {
+      _isLoading.value = true
+      _errorMessage.value = null
+      try {
+        val res = NetworkClient.apiService.confirmPendingTransaction(
+          ConfirmPendingTransactionRequest(
+            pendingTransactionId = item.id,
+            categoryName = categoryName.trim(),
+            notes = purpose?.trim()
+          )
         )
-      } else handleFailure(o)
+        if (res.isSuccessful && res.body()?.success == true) {
+          // Add to local database ledger as well
+          val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+          val parsedDate = try {
+            sdf.parse(item.transactionDate) ?: Date()
+          } catch (_: Exception) {
+            Date()
+          }
+
+          val txType = if (item.type.uppercase() == "CREDIT") TransactionType.INCOME else TransactionType.EXPENSE
+          repository.addTransaction(
+            type = txType,
+            amount = item.amount,
+            description = item.description,
+            categoryName = categoryName.trim(),
+            dateMillis = parsedDate.time,
+            dateString = item.transactionDate,
+            timeString = "12:00",
+            notes = purpose?.trim()
+          )
+
+          _statusMessage.value = "Transaction confirmed & saved to ledger."
+          loadPendingTransactions()
+          loadRealBalance()
+          onSuccess()
+        } else {
+          _errorMessage.value = res.body()?.message ?: "Failed to confirm transaction."
+        }
+      } catch (e: Exception) {
+        _errorMessage.value = e.localizedMessage ?: "Network error during confirmation"
+      } finally {
+        _isLoading.value = false
+      }
     }
   }
 
-  fun refreshBalanceAndHistory() {
+  fun dismissPendingTransaction(item: PendingTransactionDto) {
     viewModelScope.launch {
-      (repo.balance() as? Outcome.Ok)?.let { _balance.value = it.data }
-      val h = repo.balanceHistory(50)
-      if (h is Outcome.Ok) _history.value = h.data else handleFailure(h)
+      try {
+        NetworkClient.apiService.dismissPendingTransaction(
+          DismissPendingTransactionRequest(pendingTransactionId = item.id)
+        )
+        loadPendingTransactions()
+      } catch (_: Exception) {}
     }
   }
 
-  fun refreshLogs() {
+  fun updateAutomationConfig(
+    intervalMinutes: Int,
+    targetPhone: String,
+    isEnabled: Boolean,
+    railwayUrl: String?,
+    onSuccess: () -> Unit
+  ) {
     viewModelScope.launch {
-      val l = repo.logs(60)
-      if (l is Outcome.Ok) _logs.value = l.data else handleFailure(l)
+      _isLoading.value = true
+      _errorMessage.value = null
+      try {
+        val res = NetworkClient.apiService.updateAutomationConfig(
+          UpdateAutomationConfigRequest(
+            intervalMinutes = intervalMinutes,
+            sbiTargetPhone = targetPhone.trim(),
+            isEnabled = isEnabled,
+            railwayApiUrl = railwayUrl?.trim()
+          )
+        )
+        if (res.isSuccessful && res.body()?.success == true) {
+          _statusMessage.value = "Automation configuration saved."
+          loadAutomationConfig()
+          onSuccess()
+        } else {
+          _errorMessage.value = res.body()?.message ?: "Failed to update configuration."
+        }
+      } catch (e: Exception) {
+        _errorMessage.value = e.localizedMessage ?: "Failed to reach server."
+      } finally {
+        _isLoading.value = false
+      }
     }
   }
 
-  // ------------------------------------------------------------ WhatsApp (Railway)
-  /** Live status from the Railway worker (QR code / pairing code / Connected / Reconnecting). */
-  fun refreshWhatsapp(quiet: Boolean = true) {
+  fun checkRailwayStatus(railwayUrl: String) {
     viewModelScope.launch {
-      val s = repo.whatsappStatus()
-      if (s is Outcome.Ok) {
-        _whatsapp.value = s.data.whatsapp
-        _storagePersistent.value = s.data.storagePersistent
-        if (s.data.whatsapp.state != "PAIRING_CODE_READY" && s.data.whatsapp.state != "QR_READY") _pairingCode.value = null
-      } else if (!quiet) handleFailure(s)
+      _isLoading.value = true
+      try {
+        val wasConnected = _railwayStatus.value?.connected == true
+        val cleanUrl = formatEndpoint(railwayUrl, "api/whatsapp/status")
+        val res = NetworkClient.apiService.getRailwayStatus(cleanUrl)
+        if (res.isSuccessful && res.body() != null) {
+          val newStatus = res.body()!!
+          if (wasConnected && !newStatus.connected) {
+            NotificationHelper.showWhatsAppDisconnectedNotification(getApplication())
+          }
+          _railwayStatus.value = newStatus
+        }
+      } catch (e: Exception) {
+        _errorMessage.value = "Could not contact WhatsApp worker: ${e.localizedMessage}"
+      } finally {
+        _isLoading.value = false
+      }
     }
   }
 
-  fun startQrLinking() {
+  fun requestPairingCode(railwayUrl: String, phoneNumber: String) {
     viewModelScope.launch {
-      _busy.value = true
-      val s = repo.startQrLinking()
-      if (s is Outcome.Ok) _whatsapp.value = s.data.whatsapp else handleFailure(s)
-      _busy.value = false
+      _isLoading.value = true
+      _errorMessage.value = null
+      _pairingCode.value = null
+      try {
+        val cleanUrl = formatEndpoint(railwayUrl, "api/whatsapp/pair")
+        val res = NetworkClient.apiService.requestRailwayPairCode(
+          cleanUrl,
+          RailwayPairRequest(phoneNumber = phoneNumber.trim())
+        )
+        if (res.isSuccessful && res.body()?.success == true) {
+          _pairingCode.value = res.body()?.pairingCode
+          _statusMessage.value = "Pairing code generated! Enter it into WhatsApp Linked Devices."
+        } else {
+          _errorMessage.value = res.body()?.error ?: "Failed to generate pairing code."
+        }
+      } catch (e: Exception) {
+        _errorMessage.value = "Failed to contact Railway worker: ${e.localizedMessage}"
+      } finally {
+        _isLoading.value = false
+      }
     }
   }
 
-  fun requestPairingCode(phone: String) {
+  fun disconnectRailway(railwayUrl: String) {
     viewModelScope.launch {
-      _busy.value = true
-      val s = repo.requestPairingCode(phone)
-      if (s is Outcome.Ok) {
-        _pairingCode.value = s.data.pairingCode
-        _whatsapp.value = _whatsapp.value.copy(state = "PAIRING_CODE_READY", pairingCode = s.data.pairingCode)
-      } else handleFailure(s)
-      _busy.value = false
+      _isLoading.value = true
+      try {
+        val cleanUrl = formatEndpoint(railwayUrl, "api/whatsapp/disconnect")
+        NetworkClient.apiService.disconnectRailway(cleanUrl)
+        checkRailwayStatus(railwayUrl)
+        _statusMessage.value = "WhatsApp disconnected on Railway."
+      } catch (e: Exception) {
+        _errorMessage.value = e.localizedMessage
+      } finally {
+        _isLoading.value = false
+      }
     }
   }
 
-  fun disconnectWhatsapp() {
+  fun triggerAutomationNow(railwayUrl: String) {
     viewModelScope.launch {
-      _busy.value = true
-      val s = repo.disconnectWhatsapp()
-      if (s is Outcome.Ok) {
-        _whatsapp.value = RwWhatsAppDto()
-        _info.value = "WhatsApp disconnected. Its stored session was deleted from the server."
-      } else handleFailure(s)
-      _busy.value = false
-      refreshOverview()
+      _isLoading.value = true
+      _statusMessage.value = "Requesting SBI Mini Statement cycle on Railway..."
+      try {
+        val cleanUrl = formatEndpoint(railwayUrl, "api/automation/run-now")
+        val res = NetworkClient.apiService.runRailwayAutomationNow(cleanUrl)
+        if (res.isSuccessful) {
+          _statusMessage.value = "Cycle triggered! Statement will be parsed shortly."
+          loadPendingTransactions()
+          loadRealBalance()
+        } else {
+          _errorMessage.value = "Railway cycle trigger failed."
+        }
+      } catch (e: Exception) {
+        _errorMessage.value = e.localizedMessage
+      } finally {
+        _isLoading.value = false
+      }
     }
   }
 
-  // ------------------------------------------------------------ automation (Railway owns the schedule)
-  fun setEnabled(enabled: Boolean, intervalMinutes: Int?) {
-    viewModelScope.launch {
-      _busy.value = true
-      val r = if (enabled) repo.startAutomation(intervalMinutes, null) else repo.stopAutomation()
-      if (r is Outcome.Ok) { r.data.automation?.let { _automation.value = it }; _info.value = r.data.message } else handleFailure(r)
-      _busy.value = false
-      refreshOverview(); refreshLogs()
-    }
+  fun clearMessages() {
+    _statusMessage.value = null
+    _errorMessage.value = null
   }
 
-  fun setInterval(minutes: Int) {
-    viewModelScope.launch {
-      _busy.value = true
-      val r = repo.updateInterval(minutes)
-      if (r is Outcome.Ok) { r.data.automation?.let { _automation.value = it }; _info.value = "Interval saved: every ${formatInterval(minutes)}" } else handleFailure(r)
-      _busy.value = false
-    }
-  }
-
-  fun setImportInitial(v: Boolean) {
-    viewModelScope.launch {
-      val r = repo.setImportInitial(v)
-      if (r is Outcome.Ok) r.data.automation?.let { _automation.value = it } else handleFailure(r)
-    }
-  }
-
-  fun runNow() {
-    viewModelScope.launch {
-      _busy.value = true
-      val r = repo.runNow()
-      if (r is Outcome.Ok) _info.value = r.data.message ?: "Fetch started" else handleFailure(r)
-      _busy.value = false
-      kotlinx.coroutines.delay(4000); refreshOverview(); refreshLogs()
-    }
-  }
-
-  // ------------------------------------------------------------ pending queue
-  fun syncPending() {
-    viewModelScope.launch {
-      val r = repo.syncPending()
-      if (r is Outcome.Ok) {
-        _pending.value = r.data.pending
-        if (r.data.balance != null) _balance.value = (_balance.value ?: RealBalanceResponse(true, true)).copy(currentBalance = r.data.balance, balanceDifference = r.data.balanceDifference)
-      } else if (r is Outcome.AuthRequired) _authRequired.value = true
-      // Offline is not an error here: the cached list stays visible.
-    }
-  }
-
-  /** Used while the app is open: sync, refresh the list and raise notifications for new items. */
-  fun syncAndNotify() {
-    viewModelScope.launch {
-      val r = repo.syncPending()
-      if (r is Outcome.Ok) {
-        _pending.value = r.data.pending
-        com.example.worker.PendingNotifier.process(getApplication(), repo, r.data.pending)
-        (repo.balance() as? Outcome.Ok)?.let { _balance.value = it.data }
-      } else if (r is Outcome.AuthRequired) _authRequired.value = true
-    }
-  }
-
-  fun loadCategories() {
-    viewModelScope.launch { _categories.value = repo.categories() }
-  }
-
-  fun isSnoozedLocally(id: String): Boolean = repo.isLocallySnoozed(id)
-
-  suspend fun loadPendingItem(id: String): PendingTransactionDto? = repo.fetchPendingOne(id)
-
-  /** Saves the answer (queued on the phone first), then returns the next pending item id or null. */
-  fun submitAnswer(item: PendingTransactionDto, category: String, purpose: String, onSaved: (savedOffline: Boolean, nextId: String?) -> Unit) {
-    viewModelScope.launch {
-      _busy.value = true
-      val r = repo.submitAnswer(item, category, purpose)
-      _busy.value = false
-      _pending.value = repo.cachedPending()
-      onSaved(r !is Outcome.Ok, _pending.value.firstOrNull { it.id != item.id }?.id)
-    }
-  }
-
-  fun snooze(item: PendingTransactionDto, minutes: Int) {
-    viewModelScope.launch {
-      repo.snooze(item, minutes)
-      _pending.value = repo.cachedPending()
-      _info.value = "Reminder snoozed for ${formatInterval(minutes)}. The transaction stays pending."
-    }
-  }
-
-  companion object {
-    fun formatInterval(min: Int): String = when {
-      min % 1440 == 0 -> "${min / 1440} day" + if (min / 1440 > 1) "s" else ""
-      min % 60 == 0 -> "${min / 60} hour" + if (min / 60 > 1) "s" else ""
-      else -> "$min minutes"
-    }
+  private fun formatEndpoint(baseUrl: String, path: String): String {
+    val clean = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+    return clean + path
   }
 }

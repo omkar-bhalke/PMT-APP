@@ -48,8 +48,28 @@ object AppRestrictionManager {
     prefs.edit().putBoolean(KEY_RESTRICTION_ENABLED, enabled).apply()
   }
 
+  private var temporaryOverrideUntil: Long = 0L
+
+  fun grantTemporaryOverride(durationMinutes: Int = 15) {
+    temporaryOverrideUntil = System.currentTimeMillis() + (durationMinutes * 60 * 1000L)
+  }
+
+  fun isOverrideActive(): Boolean {
+    return System.currentTimeMillis() < temporaryOverrideUntil
+  }
+
+  fun getRemainingOverrideMinutes(): Int {
+    val remaining = temporaryOverrideUntil - System.currentTimeMillis()
+    return if (remaining > 0) ((remaining / 1000) / 60).toInt() + 1 else 0
+  }
+
+  fun clearOverride() {
+    temporaryOverrideUntil = 0L
+  }
+
   fun isPackageRestricted(context: Context, packageName: String): Boolean {
     if (!isFeatureEnabled(context)) return false
+    if (isOverrideActive()) return false
     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     return prefs.getBoolean("pkg_$packageName", true)
   }

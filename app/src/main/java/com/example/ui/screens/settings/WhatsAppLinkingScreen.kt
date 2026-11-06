@@ -83,7 +83,24 @@ fun WhatsAppLinkingScreen(
   val settings by viewModel.userSettings.collectAsState()
   val whatsAppStatus by viewModel.whatsAppStatus.collectAsState()
 
+  val automationConfig by automationViewModel?.automationConfig?.collectAsState() ?: remember { mutableStateOf(null) }
+  val railwayStatus by automationViewModel?.railwayStatus?.collectAsState() ?: remember { mutableStateOf(null) }
+  val pairingCode by automationViewModel?.pairingCode?.collectAsState() ?: remember { mutableStateOf(null) }
+  val autoLoading by automationViewModel?.isLoading?.collectAsState() ?: remember { mutableStateOf(false) }
+  val autoErrMsg by automationViewModel?.errorMessage?.collectAsState() ?: remember { mutableStateOf(null) }
+  val autoStatusMsg by automationViewModel?.statusMessage?.collectAsState() ?: remember { mutableStateOf(null) }
+
   var selectedTab by remember { mutableIntStateOf(0) } // 0: Railway Worker, 1: Meta Cloud API
+
+  // Railway State
+  var railwayUrl by remember { mutableStateOf("https://your-railway-app.up.railway.app") }
+  var personalPhoneNumber by remember { mutableStateOf("") }
+
+  LaunchedEffect(automationConfig) {
+    automationConfig?.railwayApiUrl?.let {
+      if (it.isNotBlank()) railwayUrl = it
+    }
+  }
 
   // Meta State
   var metaPhoneNumberText by remember { mutableStateOf(settings.whatsAppPhoneNumber ?: "+91 ") }
@@ -133,7 +150,246 @@ fun WhatsAppLinkingScreen(
       }
 
       if (selectedTab == 0) {
-        com.example.ui.screens.sbi.SbiWhatsAppLinkPanel(automationViewModel)
+        // ==========================================
+        // TAB 0: RAILWAY BAILEYS WORKER
+        // ==========================================
+
+        // Architecture & Disclaimer Banner
+        Card(
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = NavySurface)
+        ) {
+          Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Box(
+                modifier = Modifier
+                  .size(36.dp)
+                  .clip(CircleShape)
+                  .background(IncomeGreen.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(Icons.Default.Phone, contentDescription = null, tint = IncomeGreen, modifier = Modifier.size(20.dp))
+              }
+              Spacer(modifier = Modifier.width(10.dp))
+              Text(
+                text = "Railway WhatsApp Multi-Device Worker",
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+              )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+              text = "Links your personal WhatsApp to the 24/7 worker on Railway. Sessions are stored on persistent volume (/data). The worker talks to SBI WhatsApp Banking (919022690226) to retrieve mini statements.",
+              color = Color(0xFF94A3B8),
+              fontSize = 12.sp,
+              lineHeight = 17.sp
+            )
+          }
+        }
+
+        // Live Railway Status
+        val isRailwayConnected = railwayStatus?.connected == true
+        val statusString = when {
+          isRailwayConnected -> "CONNECTED"
+          railwayStatus?.status == "RECONNECTING" -> "RECONNECTING"
+          else -> "DISCONNECTED"
+        }
+        val statusColor = when {
+          isRailwayConnected -> IncomeGreen
+          railwayStatus?.status == "RECONNECTING" -> Color(0xFFF59E0B)
+          else -> Color(0xFF64748B)
+        }
+
+        Card(
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+          Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Column {
+                Text("Railway Connection Status", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                  text = if (isRailwayConnected) "Active session on persistent volume" else "No active WhatsApp session on worker",
+                  fontSize = 12.sp,
+                  color = if (isRailwayConnected) IncomeGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+              }
+              Box(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(8.dp))
+                  .background(statusColor.copy(alpha = 0.15f))
+                  .padding(horizontal = 10.dp, vertical = 5.dp)
+              ) {
+                Text(text = statusString, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+              }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedButton(
+              onClick = {
+                automationViewModel?.checkRailwayStatus(railwayUrl)
+              },
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Refresh Worker Status")
+            }
+          }
+        }
+
+        // Feedback messages
+        autoStatusMsg?.let { msg ->
+          Card(
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(containerColor = IncomeGreen.copy(alpha = 0.15f))
+          ) {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.CheckCircle, contentDescription = null, tint = IncomeGreen, modifier = Modifier.size(18.dp))
+              Spacer(modifier = Modifier.width(8.dp))
+              Text(text = msg, color = IncomeGreen, fontSize = 12.sp)
+            }
+          }
+        }
+
+        autoErrMsg?.let { msg ->
+          Card(
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(containerColor = ExpenseRed.copy(alpha = 0.15f))
+          ) {
+            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.Warning, contentDescription = null, tint = ExpenseRed, modifier = Modifier.size(18.dp))
+              Spacer(modifier = Modifier.width(8.dp))
+              Text(text = msg, color = ExpenseRed, fontSize = 12.sp)
+            }
+          }
+        }
+
+        // Railway Endpoint input
+        Column {
+          Text("Railway Worker URL", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+          Spacer(modifier = Modifier.height(4.dp))
+          OutlinedTextField(
+            value = railwayUrl,
+            onValueChange = { railwayUrl = it },
+            placeholder = { Text("https://xxx.up.railway.app") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().testTag("railway_worker_url_input")
+          )
+        }
+
+        // 8-Digit Pairing Code Method
+        Card(
+          shape = RoundedCornerShape(14.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+        ) {
+          Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Link With 8-Digit Pairing Code", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(
+              text = "Enter your phone number with country code (e.g. 919876543210). WhatsApp will generate an 8-character pairing code.",
+              fontSize = 12.sp,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              lineHeight = 16.sp
+            )
+
+            OutlinedTextField(
+              value = personalPhoneNumber,
+              onValueChange = { personalPhoneNumber = it },
+              placeholder = { Text("919876543210") },
+              keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+              singleLine = true,
+              modifier = Modifier.fillMaxWidth().testTag("pairing_phone_input")
+            )
+
+            Button(
+              onClick = {
+                if (personalPhoneNumber.trim().length < 10) {
+                  Toast.makeText(context, "Please enter valid number with country code", Toast.LENGTH_SHORT).show()
+                  return@Button
+                }
+                automationViewModel?.requestPairingCode(railwayUrl, personalPhoneNumber)
+              },
+              enabled = !autoLoading,
+              colors = ButtonDefaults.buttonColors(containerColor = IncomeGreen),
+              shape = RoundedCornerShape(10.dp),
+              modifier = Modifier.fillMaxWidth().testTag("request_pairing_code_btn")
+            ) {
+              if (autoLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White)
+              } else {
+                Text("Generate 8-Digit Pairing Code", fontWeight = FontWeight.Bold)
+              }
+            }
+
+            // Display pairing code if generated
+            pairingCode?.let { code ->
+              Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(containerColor = NavySurface),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(
+                  modifier = Modifier.padding(14.dp),
+                  horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                  Text("Enter this code in WhatsApp:", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                  Spacer(modifier = Modifier.height(6.dp))
+                  Text(
+                    text = code,
+                    color = IncomeGreen,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                  )
+                  Spacer(modifier = Modifier.height(6.dp))
+                  Text(
+                    text = "WhatsApp > Linked Devices > Link a Device > Link with phone number instead",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                  )
+                }
+              }
+            }
+          }
+        }
+
+        // Disconnect Button
+        if (isRailwayConnected) {
+          OutlinedButton(
+            onClick = {
+              automationViewModel?.disconnectRailway(railwayUrl)
+            },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = ExpenseRed),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Text("Disconnect Railway WhatsApp Session", fontWeight = FontWeight.Bold)
+          }
+        }
+
+        // Baileys Terms & Risk Disclosure
+        Card(
+          shape = RoundedCornerShape(12.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        ) {
+          Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+              text = "Notice: The automated worker uses the open-source Baileys multi-device protocol. This is an unofficial WhatsApp client. WhatsApp may apply rate limits or account restrictions on automated accounts. Do not use your primary personal number if you are concerned with temporary restrictions.",
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              fontSize = 11.sp,
+              lineHeight = 16.sp
+            )
+          }
+        }
+
       } else {
         // ==========================================
         // TAB 1: META GRAPH API GATEWAY (TASK 3)

@@ -82,6 +82,10 @@ class AppRestrictionActivity : ComponentActivity() {
             startActivity(homeIntent)
             finish()
           },
+          onAllowTemporaryOverride = {
+            AppRestrictionManager.grantTemporaryOverride(15)
+            finish()
+          },
           onRequestEmergencyApproval = {
             val homeIntent = Intent(this, MainActivity::class.java).apply {
               flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -102,6 +106,7 @@ fun AppRestrictionScreen(
   spentToday: Double,
   dailyLimit: Double,
   onReturnToDashboard: () -> Unit,
+  onAllowTemporaryOverride: () -> Unit = {},
   onRequestEmergencyApproval: () -> Unit
 ) {
   val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
@@ -148,7 +153,7 @@ fun AppRestrictionScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-          text = "Your daily spending limit has been reached. FinPulse Spending Guardian paused launch of $appName to protect your financial discipline.",
+          text = "Your configured daily spending limit has been reached. FinPulse detected launch of $appName to protect your financial goals.",
           fontSize = 13.sp,
           color = Color(0xFF94A3B8),
           textAlign = TextAlign.Center,
@@ -200,13 +205,13 @@ fun AppRestrictionScreen(
       // Bottom Actions
       Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
       ) {
         Button(
           onClick = onReturnToDashboard,
           modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(50.dp)
             .testTag("restriction_return_dashboard_button"),
           shape = RoundedCornerShape(14.dp),
           colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
@@ -214,23 +219,35 @@ fun AppRestrictionScreen(
           Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Return to FinPulse Dashboard", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Stay Protected • Return to FinPulse", fontWeight = FontWeight.Bold, fontSize = 13.sp)
           }
+        }
+
+        Button(
+          onClick = onAllowTemporaryOverride,
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .testTag("restriction_temporary_override_button"),
+          shape = RoundedCornerShape(14.dp),
+          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
+        ) {
+          Text("Unlock for 15 Minutes (Urgent Payment)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color.White)
         }
 
         OutlinedButton(
           onClick = onRequestEmergencyApproval,
           modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(48.dp)
             .testTag("restriction_request_emergency_button"),
           shape = RoundedCornerShape(14.dp),
           colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
         ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFFE2B659), modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Request Emergency Allowance Exception", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFFE2B659), modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Request Allowance Exception", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
           }
         }
       }

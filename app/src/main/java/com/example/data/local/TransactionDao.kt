@@ -13,13 +13,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TransactionDao {
-  @Query("SELECT * FROM transactions ORDER BY dateMillis DESC, timeString DESC")
+  @Query("SELECT * FROM transactions ORDER BY createdAt DESC, dateMillis DESC, timeString DESC")
   fun getAllTransactions(): Flow<List<TransactionEntity>>
 
-  @Query("SELECT * FROM transactions WHERE dateString = :date ORDER BY timeString DESC")
+  @Query("SELECT * FROM transactions WHERE dateString = :date ORDER BY createdAt DESC, timeString DESC")
   fun getTransactionsByDate(date: String): Flow<List<TransactionEntity>>
 
-  @Query("SELECT * FROM transactions WHERE dateString >= :startDate AND dateString <= :endDate ORDER BY dateMillis DESC")
+  @Query("SELECT * FROM transactions WHERE dateString >= :startDate AND dateString <= :endDate ORDER BY createdAt DESC, dateMillis DESC")
   fun getTransactionsBetweenDates(startDate: String, endDate: String): Flow<List<TransactionEntity>>
 
   @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")

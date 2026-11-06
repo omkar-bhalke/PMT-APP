@@ -28,10 +28,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
   object EmergencyApproval : Screen("emergency_approval", "Emergency Request")
   object PendingTransactions : Screen("pending_transactions", "SBI Statement Entries")
   object AutomationSettings : Screen("automation_settings", "Statement Automation")
-  object Balance : Screen("sbi_balance", "SBI Balance")
-  object PendingForm : Screen("pending_form/{pendingId}", "Transaction details") {
-    fun create(id: String) = "pending_form/$id"
-  }
+  object EditProfile : Screen("edit_profile", "Edit Profile")
+  object AdminPanel : Screen("admin_panel", "Admin Console")
 
   companion object {
     val bottomNavItems = listOf(

@@ -131,32 +131,14 @@ fun LoginScreen(
 
       Spacer(modifier = Modifier.height(24.dp))
 
-      // Hardware Device Security Pill
-      Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = NavySurface),
-        modifier = Modifier.fillMaxWidth()
-      ) {
-        Row(
-          modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Icon(
-            imageVector = Icons.Default.PhonelinkLock,
-            contentDescription = null,
-            tint = AccentGold,
-            modifier = Modifier.size(16.dp)
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Text(
-            text = "Hardware Device Bound: ${viewModel.deviceId.take(16)}...",
-            fontSize = 11.sp,
-            color = Color(0xFFCBD5E1)
-          )
-        }
-      }
+      Text(
+        text = "Sign in to access your financial cockpit",
+        fontSize = 13.sp,
+        color = Color(0xFF94A3B8),
+        textAlign = TextAlign.Center
+      )
 
-      Spacer(modifier = Modifier.height(16.dp))
+      Spacer(modifier = Modifier.height(20.dp))
 
       // Error banner
       if (errorMessage != null) {

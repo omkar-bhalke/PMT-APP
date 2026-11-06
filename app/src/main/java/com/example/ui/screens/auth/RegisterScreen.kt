@@ -137,41 +137,11 @@ fun RegisterScreen(
     ) {
       Spacer(modifier = Modifier.height(4.dp))
 
-      // Hardware Device Binding Card (Task 2)
-      Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = NavySurface),
-        modifier = Modifier.fillMaxWidth()
-      ) {
-        Row(
-          modifier = Modifier.padding(14.dp),
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Box(
-            modifier = Modifier
-              .size(38.dp)
-              .clip(CircleShape)
-              .background(AccentGold.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-          ) {
-            Icon(Icons.Default.PhonelinkLock, contentDescription = null, tint = AccentGold, modifier = Modifier.size(20.dp))
-          }
-          Spacer(modifier = Modifier.width(12.dp))
-          Column {
-            Text(
-              text = "One Device = One Account Policy",
-              color = Color.White,
-              fontSize = 13.sp,
-              fontWeight = FontWeight.Bold
-            )
-            Text(
-              text = "Hardware ID: ${viewModel.deviceId.take(14)}... (Keystore Protected)",
-              color = Color(0xFF94A3B8),
-              fontSize = 11.sp
-            )
-          }
-        }
-      }
+      Text(
+        text = "Register to start managing your daily expenses and savings",
+        fontSize = 13.sp,
+        color = Color(0xFF94A3B8)
+      )
 
       if (errorMessage != null) {
         Card(

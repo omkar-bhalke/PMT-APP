@@ -84,6 +84,8 @@ fun SettingsScreen(
   onNavigateToAppRestrictions: () -> Unit,
   onNavigateToAutomationSettings: () -> Unit = {},
   onNavigateToPendingTransactions: () -> Unit = {},
+  onNavigateToEditProfile: () -> Unit = {},
+  onNavigateToAdminPanel: () -> Unit = {},
   onReplayTutorial: () -> Unit,
   onLogout: () -> Unit,
   modifier: Modifier = Modifier
@@ -173,11 +175,15 @@ fun SettingsScreen(
                   fontWeight = FontWeight.SemiBold
                 )
               }
+
+              TextButton(onClick = onNavigateToEditProfile) {
+                Text("Edit Profile", color = AccentGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+              }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Keystore Device Binding Badge
+            // Security Badge
             Row(
               modifier = Modifier
                 .fillMaxWidth()
@@ -187,14 +193,14 @@ fun SettingsScreen(
               verticalAlignment = Alignment.CenterVertically
             ) {
               Icon(
-                imageVector = Icons.Default.PhonelinkLock,
+                imageVector = Icons.Default.Security,
                 contentDescription = null,
                 tint = AccentGold,
                 modifier = Modifier.size(14.dp)
               )
               Spacer(modifier = Modifier.width(6.dp))
               Text(
-                text = "Device Bound: ${(settings.deviceId.takeIf { it.isNotBlank() } ?: viewModel.deviceId).take(16)}... (Android Keystore)",
+                text = "Account Security: Hardware-Backed Protection Active",
                 fontSize = 10.sp,
                 color = Color(0xFFCBD5E1)
               )
@@ -408,6 +414,12 @@ fun SettingsScreen(
               title = "Interactive Tutorial",
               subtitle = "Replay onboarding walkthrough",
               onClick = onReplayTutorial
+            )
+            SettingsItemRow(
+              icon = Icons.Default.TrackChanges,
+              title = "System Administration Console",
+              subtitle = "View detailed statistics, telemetry, and service health",
+              onClick = onNavigateToAdminPanel
             )
             SettingsItemRow(
               icon = Icons.Default.Security,

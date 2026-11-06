@@ -36,23 +36,21 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.data.model.TransactionEntity
 import com.example.ui.screens.ai.AiAssistantScreen
+import com.example.ui.screens.admin.AdminPanelScreen
 import com.example.ui.screens.analytics.AnalyticsScreen
 import com.example.ui.screens.auth.LoginScreen
 import com.example.ui.screens.auth.RegisterScreen
 import com.example.ui.screens.dashboard.DashboardScreen
 import com.example.ui.screens.emergency.EmergencyApprovalScreen
 import com.example.ui.screens.onboarding.OnboardingScreen
+import com.example.ui.screens.profile.EditProfileScreen
 import com.example.ui.screens.settings.AppRestrictionSettingsScreen
+import com.example.ui.screens.settings.AutomationSettingsScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.screens.settings.WhatsAppLinkingScreen
 import com.example.ui.screens.transactions.AddEditTransactionScreen
+import com.example.ui.screens.transactions.PendingTransactionsScreen
 import com.example.ui.screens.transactions.TransactionListScreen
-import androidx.lifecycle.repeatOnLifecycle
-import com.example.ui.screens.sbi.AutomationSettingsScreen
-import com.example.ui.screens.sbi.BalanceScreen
-import com.example.ui.screens.sbi.PendingPopupHost
-import com.example.ui.screens.sbi.PendingTransactionFormScreen
-import com.example.ui.screens.sbi.PendingTransactionsScreen
 import com.example.viewmodel.AiAssistantViewModel
 import com.example.viewmodel.AnalyticsViewModel
 import com.example.viewmodel.DashboardViewModel
@@ -63,8 +61,6 @@ import com.example.viewmodel.TransactionViewModel
 @Composable
 fun FinPulseNavHost(
   mainViewModel: MainViewModel,
-  deepLinkPendingId: String? = null,
-  onDeepLinkConsumed: () -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   val navController = rememberNavController()
@@ -81,47 +77,6 @@ fun FinPulseNavHost(
   val statementViewModel: com.example.viewmodel.StatementAutomationViewModel = viewModel()
 
   var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
-
-  val appContext = androidx.compose.ui.platform.LocalContext.current
-  val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-  val loggedIn = userSettings.userId.isNotBlank() && userSettings.onboardingCompleted
-  val statementAuthRequired by statementViewModel.authRequired.collectAsState()
-
-  LaunchedEffect(statementAuthRequired) {
-    if (statementAuthRequired) snackbarHostState.showSnackbar("Session expired. Please log in again to keep receiving transaction reminders.")
-  }
-
-  // Background sync (works while the app is closed / phone was off) + foreground polling while visible.
-  LaunchedEffect(loggedIn) {
-    if (loggedIn) {
-      com.example.util.NotificationHelper.createChannels(appContext)
-      com.example.worker.SyncScheduler.schedule(appContext)
-    } else {
-      com.example.worker.SyncScheduler.cancelAll(appContext)
-    }
-  }
-  LaunchedEffect(loggedIn, lifecycleOwner) {
-    if (loggedIn) {
-      lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
-        while (true) {
-          statementViewModel.syncAndNotify()
-          kotlinx.coroutines.delay(30_000)
-        }
-      }
-    }
-  }
-
-  // Notification tap -> open the exact transaction form (original amount/date), never a blank screen.
-  LaunchedEffect(deepLinkPendingId, loggedIn) {
-    val id = deepLinkPendingId
-    if (id != null && loggedIn) {
-      runCatching {
-        if (id == "list") navController.navigate(Screen.PendingTransactions.route)
-        else navController.navigate(Screen.PendingForm.create(id))
-      }
-      onDeepLinkConsumed()
-    }
-  }
 
   // Sync notification
   LaunchedEffect(syncMessage) {
@@ -150,14 +105,6 @@ fun FinPulseNavHost(
   val currentRoute = navBackStackEntry?.destination?.route
 
   val isBottomNavVisible = currentRoute in Screen.bottomNavItems.map { it.route }
-
-  PendingPopupHost(
-    viewModel = statementViewModel,
-    enabled = loggedIn && currentRoute != null &&
-      currentRoute != Screen.Login.route && currentRoute != Screen.Register.route && currentRoute != Screen.Onboarding.route &&
-      currentRoute != Screen.PendingForm.route,
-    onOpenForm = { id -> navController.navigate(Screen.PendingForm.create(id)) }
-  )
 
   Scaffold(
     snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -218,12 +165,12 @@ fun FinPulseNavHost(
         enterTransition = { fadeIn() },
         exitTransition = { fadeOut() }
       ) {
-        // 1. Login (Email + Password + Device Binding)
+        // 1. Login (Email + Password)
         composable(Screen.Login.route) {
           LoginScreen(
             viewModel = mainViewModel,
             onLoginSuccess = { isFirstTime ->
-              if (isFirstTime || !userSettings.onboardingCompleted) {
+              if (isFirstTime && !userSettings.onboardingCompleted) {
                 navController.navigate(Screen.Onboarding.route) {
                   popUpTo(Screen.Login.route) { inclusive = true }
                 }
@@ -271,14 +218,15 @@ fun FinPulseNavHost(
           DashboardScreen(
             viewModel = dashboardViewModel,
             statementViewModel = statementViewModel,
-            onPendingTransactionsClick = { navController.navigate(Screen.PendingTransactions.route) },
-            onSbiBalanceClick = { navController.navigate(Screen.Balance.route) },
             onAddTransactionClick = {
               transactionToEdit = null
               navController.navigate(Screen.AddTransaction.route)
             },
             onViewAllTransactionsClick = {
               navController.navigate(Screen.Transactions.route)
+            },
+            onPendingTransactionsClick = {
+              navController.navigate(Screen.PendingTransactions.route)
             },
             onTransactionClick = { tx ->
               transactionToEdit = tx
@@ -333,8 +281,18 @@ fun FinPulseNavHost(
             onNavigateToAppRestrictions = {
               navController.navigate(Screen.AppRestrictions.route)
             },
-            onNavigateToAutomationSettings = { navController.navigate(Screen.AutomationSettings.route) },
-            onNavigateToPendingTransactions = { navController.navigate(Screen.PendingTransactions.route) },
+            onNavigateToAutomationSettings = {
+              navController.navigate(Screen.AutomationSettings.route)
+            },
+            onNavigateToPendingTransactions = {
+              navController.navigate(Screen.PendingTransactions.route)
+            },
+            onNavigateToEditProfile = {
+              navController.navigate(Screen.EditProfile.route)
+            },
+            onNavigateToAdminPanel = {
+              navController.navigate(Screen.AdminPanel.route)
+            },
             onReplayTutorial = {
               navController.navigate(Screen.Onboarding.route)
             },
@@ -375,51 +333,13 @@ fun FinPulseNavHost(
           )
         }
 
-        // 12. WhatsApp Linking (Meta Cloud API)
+        // 12. WhatsApp Linking (Railway Worker + Meta Cloud API)
         composable(Screen.WhatsAppLinking.route) {
           BackHandler { navController.popBackStack() }
           WhatsAppLinkingScreen(
             viewModel = settingsViewModel,
             automationViewModel = statementViewModel,
             onNavigateBack = { navController.popBackStack() }
-          )
-        }
-
-        // SBI automation screens
-        composable(Screen.AutomationSettings.route) {
-          BackHandler { navController.popBackStack() }
-          AutomationSettingsScreen(
-            viewModel = statementViewModel,
-            onNavigateBack = { navController.popBackStack() },
-            onOpenWhatsAppLink = { navController.navigate(Screen.WhatsAppLinking.route) },
-            onOpenBalance = { navController.navigate(Screen.Balance.route) }
-          )
-        }
-        composable(Screen.Balance.route) {
-          BackHandler { navController.popBackStack() }
-          BalanceScreen(viewModel = statementViewModel, onNavigateBack = { navController.popBackStack() })
-        }
-        composable(Screen.PendingTransactions.route) {
-          BackHandler { navController.popBackStack() }
-          PendingTransactionsScreen(
-            viewModel = statementViewModel,
-            onNavigateBack = { navController.popBackStack() },
-            onOpenForm = { id -> navController.navigate(Screen.PendingForm.create(id)) }
-          )
-        }
-        composable(
-          route = Screen.PendingForm.route,
-          arguments = listOf(androidx.navigation.navArgument("pendingId") { type = androidx.navigation.NavType.StringType })
-        ) { entry ->
-          val id = entry.arguments?.getString("pendingId").orEmpty()
-          BackHandler { navController.popBackStack() }
-          PendingTransactionFormScreen(
-            pendingId = id,
-            viewModel = statementViewModel,
-            onNavigateBack = { navController.popBackStack() },
-            onNext = { nextId ->
-              navController.navigate(Screen.PendingForm.create(nextId)) { popUpTo(Screen.PendingForm.route) { inclusive = true } }
-            }
           )
         }
 
@@ -432,6 +352,45 @@ fun FinPulseNavHost(
               val currentLimit = userSettings.dailySpendingLimit
               dashboardViewModel.updateDailyLimit(currentLimit + extraAllowance)
             }
+          )
+        }
+
+        // 14. Pending Statement Transactions Review (SBI Upgrade)
+        composable(Screen.PendingTransactions.route) {
+          BackHandler { navController.popBackStack() }
+          PendingTransactionsScreen(
+            viewModel = statementViewModel,
+            onNavigateBack = { navController.popBackStack() }
+          )
+        }
+
+        // 15. SBI Mini Statement Automation Settings (SBI Upgrade)
+        composable(Screen.AutomationSettings.route) {
+          BackHandler { navController.popBackStack() }
+          AutomationSettingsScreen(
+            viewModel = statementViewModel,
+            onNavigateBack = { navController.popBackStack() },
+            onNavigateToWhatsAppLinking = { navController.navigate(Screen.WhatsAppLinking.route) }
+          )
+        }
+
+        // 16. Edit Profile
+        composable(Screen.EditProfile.route) {
+          BackHandler { navController.popBackStack() }
+          EditProfileScreen(
+            mainViewModel = mainViewModel,
+            onNavigateBack = { navController.popBackStack() }
+          )
+        }
+
+        // 17. System Administration Console
+        composable(Screen.AdminPanel.route) {
+          BackHandler { navController.popBackStack() }
+          AdminPanelScreen(
+            mainViewModel = mainViewModel,
+            dashboardViewModel = dashboardViewModel,
+            statementViewModel = statementViewModel,
+            onNavigateBack = { navController.popBackStack() }
           )
         }
       }

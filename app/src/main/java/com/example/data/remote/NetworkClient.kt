@@ -28,10 +28,6 @@ object NetworkClient {
     cachedDeviceId = deviceId
   }
 
-  fun currentToken(): String? = cachedToken
-  fun currentDeviceId(): String? = cachedDeviceId
-  fun currentRefreshToken(): String? = cachedRefreshToken
-
   fun setBaseUrl(url: String) {
     val formatted = if (url.endsWith("/")) url else "$url/"
     if (formatted != currentBaseUrl) {
@@ -57,7 +53,7 @@ object NetworkClient {
   }
 
   private val loggingInterceptor = HttpLoggingInterceptor().apply {
-    level = if (com.example.BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
+    level = HttpLoggingInterceptor.Level.BODY
   }
 
   private val okHttpClient = OkHttpClient.Builder()

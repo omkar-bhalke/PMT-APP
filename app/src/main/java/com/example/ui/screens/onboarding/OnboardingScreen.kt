@@ -1,11 +1,6 @@
 package com.example.ui.screens.onboarding
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,33 +22,24 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TrackChanges
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,7 +47,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -74,21 +59,18 @@ import com.example.ui.theme.NavyDark
 import com.example.ui.theme.NavySurface
 import com.example.ui.theme.PrimaryBlue
 
-data class OnboardingStep(
-  val stepNumber: Int,
-  val title: String,
-  val subtitle: String,
-  val icon: ImageVector,
-  val description: String
-)
+enum class SetupMode {
+  AUTOMATIC_WHATSAPP,
+  MANUAL_LEDGER
+}
 
 @Composable
 fun OnboardingScreen(
   onComplete: (initialBalance: Double, bankName: String, dailyLimit: Double) -> Unit,
   modifier: Modifier = Modifier
 ) {
-  var currentStep by remember { mutableIntStateOf(1) }
-  var initialBalanceText by remember { mutableStateOf("0") }
+  var setupMode by remember { mutableStateOf(SetupMode.AUTOMATIC_WHATSAPP) }
+  var manualBalanceText by remember { mutableStateOf("5000") }
   var dailyLimitText by remember { mutableStateOf("500") }
   var selectedBank by remember { mutableStateOf("State Bank of India (SBI)") }
 
@@ -101,302 +83,262 @@ fun OnboardingScreen(
     "Other Indian Bank"
   )
 
-  val steps = listOf(
-    OnboardingStep(
-      1,
-      "Welcome to FinPulse",
-      "Your Personal Expense Management & AI Financial Assistant",
-      Icons.Default.TrendingUp,
-      "FinPulse is designed to transform how you handle daily money. Master your personal finances with strict daily spending limits, automatic micro-cost detection, and AI financial discipline."
-    ),
-    OnboardingStep(
-      2,
-      "Financial Clarity & Purpose",
-      "Understand where every rupee goes",
-      Icons.Default.Savings,
-      "Stop wondering where your monthly allowance vanished. Log incidental expenses like tea, meals, printing, stationery, and travel in under 5 seconds to keep a pristine record."
-    ),
-    OnboardingStep(
-      3,
-      "Real-Time Dashboard",
-      "Your complete financial cockpit",
-      Icons.Default.Dashboard,
-      "The dashboard continuously aggregates your available balance, today's spending, monthly savings, and recent transactions without ever needing manual recalculation."
-    ),
-    OnboardingStep(
-      4,
-      "Income & Expense Tracking",
-      "Comprehensive two-way financial flow",
-      Icons.Default.ReceiptLong,
-      "Separate incoming cash (scholarships, allowances, family support) from everyday outflows (food, transport, education, shopping) with visual color badges."
-    ),
-    OnboardingStep(
-      5,
-      "Transaction Management",
-      "Full control over your ledger",
-      Icons.Default.CreditCard,
-      "Edit, delete, search, and categorize past transactions instantly. Every change immediately updates all associated balances and historical charts."
-    ),
-    OnboardingStep(
-      6,
-      "Daily Spending Limit System",
-      "Prevent overspending before it happens",
-      Icons.Default.TrackChanges,
-      "Set your daily allowance. FinPulse monitors every rupee spent today and triggers proactive visual warnings (Green: Safe, Orange: Approaching, Red: Exceeded)."
-    ),
-    OnboardingStep(
-      7,
-      "In-Depth Analytics",
-      "Visual trends across all timeframes",
-      Icons.Default.Analytics,
-      "Inspect daily, weekly, monthly, and yearly bar charts. Pinpoint your most expensive spending days and visualize category allocations effortlessly."
-    ),
-    OnboardingStep(
-      8,
-      "AI Financial Assistant",
-      "Data-grounded financial intelligence",
-      Icons.Default.AutoAwesome,
-      "Our AI analyzes your actual records to spot repeated small purchases (like 3 teas or daily snacks), calculates potential monthly savings, and provides disciplined budgeting advice."
-    ),
-    OnboardingStep(
-      9,
-      "Setup Initial Balance & Limit",
-      "Enter your starting financial state",
-      Icons.Default.AccountBalance,
-      "Provide your opening bank or cash balance and target daily spending limit. You can adjust these anytime in Settings."
-    ),
-    OnboardingStep(
-      10,
-      "Select Your Primary Bank",
-      "SBI (State Bank of India) Supported Initially",
-      Icons.Default.Flag,
-      "Choose your banking institution to organize your ledger and prepare for future transaction tracking."
-    )
-  )
-
   Scaffold(
-    containerColor = MaterialTheme.colorScheme.background,
-    topBar = {
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        if (currentStep > 1) {
-          IconButton(onClick = { currentStep-- }) {
-            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
-          }
-        } else {
-          Spacer(modifier = Modifier.width(48.dp))
-        }
-
-        Text(
-          text = "Step $currentStep of 10",
-          fontSize = 13.sp,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.primary
-        )
-
-        if (currentStep < 9) {
-          Text(
-            text = "Skip",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-              .clickable { currentStep = 9 }
-              .padding(8.dp)
-          )
-        } else {
-          Spacer(modifier = Modifier.width(48.dp))
-        }
-      }
-    }
+    containerColor = NavyDark
   ) { innerPadding ->
     Column(
-      modifier = Modifier
+      modifier = modifier
         .fillMaxSize()
         .padding(innerPadding)
-        .padding(horizontal = 24.dp, vertical = 8.dp)
+        .padding(horizontal = 24.dp, vertical = 16.dp)
         .verticalScroll(rememberScrollState()),
       horizontalAlignment = Alignment.CenterHorizontally,
       verticalArrangement = Arrangement.SpaceBetween
     ) {
-      val step = steps[currentStep - 1]
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        Spacer(modifier = Modifier.height(16.dp))
 
-      AnimatedContent(
-        targetState = currentStep,
-        transitionSpec = {
-          if (targetState > initialState) {
-            slideInHorizontally { width -> width } + fadeIn() togetherWith
-            slideOutHorizontally { width -> -width } + fadeOut()
-          } else {
-            slideInHorizontally { width -> -width } + fadeIn() togetherWith
-            slideOutHorizontally { width -> width } + fadeOut()
+        // App Icon Badge
+        Box(
+          modifier = Modifier
+            .size(72.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(NavySurface),
+          contentAlignment = Alignment.Center
+        ) {
+          Icon(
+            imageVector = Icons.Default.AutoAwesome,
+            contentDescription = "FinPulse",
+            tint = AccentGold,
+            modifier = Modifier.size(38.dp)
+          )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+          text = "Welcome to FinPulse",
+          fontSize = 26.sp,
+          fontWeight = FontWeight.Bold,
+          color = Color.White
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+          text = "Choose how you want to manage your expenses. You can change this anytime in Settings.",
+          fontSize = 13.sp,
+          color = Color(0xFF94A3B8),
+          textAlign = TextAlign.Center,
+          lineHeight = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Mode 1: Automated Sync (Recommended)
+        val isAuto = setupMode == SetupMode.AUTOMATIC_WHATSAPP
+        Card(
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = if (isAuto) NavySurface else Color(0xFF0F172A)),
+          modifier = Modifier
+            .fillMaxWidth()
+            .border(
+              width = if (isAuto) 2.dp else 1.dp,
+              color = if (isAuto) AccentGold else Color(0xFF334155),
+              shape = RoundedCornerShape(16.dp)
+            )
+            .clickable { setupMode = SetupMode.AUTOMATIC_WHATSAPP }
+            .testTag("mode_auto_sync_card")
+        ) {
+          Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
+          ) {
+            Box(
+              modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(if (isAuto) AccentGold.copy(alpha = 0.2f) else Color(0xFF1E293B)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                imageVector = Icons.Default.Speed,
+                contentDescription = null,
+                tint = if (isAuto) AccentGold else Color(0xFF94A3B8),
+                modifier = Modifier.size(22.dp)
+              )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                  text = "Automatic Banking Sync",
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 15.sp,
+                  color = Color.White
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(IncomeGreen.copy(alpha = 0.2f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                  Text("Recommended", color = IncomeGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+              }
+
+              Spacer(modifier = Modifier.height(4.dp))
+              Text(
+                text = "Automatically fetches live balance and statements from SBI WhatsApp Banking (919022690226). No manual balance calculation needed!",
+                fontSize = 12.sp,
+                color = Color(0xFF94A3B8),
+                lineHeight = 17.sp
+              )
+            }
           }
-        },
-        label = "onboarding_step"
-      ) { targetStepNum ->
-        val current = steps[targetStepNum - 1]
-        Column(
-          horizontalAlignment = Alignment.CenterHorizontally,
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Mode 2: Manual Ledger
+        val isManual = setupMode == SetupMode.MANUAL_LEDGER
+        Card(
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = if (isManual) NavySurface else Color(0xFF0F172A)),
+          modifier = Modifier
+            .fillMaxWidth()
+            .border(
+              width = if (isManual) 2.dp else 1.dp,
+              color = if (isManual) AccentGold else Color(0xFF334155),
+              shape = RoundedCornerShape(16.dp)
+            )
+            .clickable { setupMode = SetupMode.MANUAL_LEDGER }
+            .testTag("mode_manual_ledger_card")
+        ) {
+          Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
+          ) {
+            Box(
+              modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(if (isManual) AccentGold.copy(alpha = 0.2f) else Color(0xFF1E293B)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                imageVector = Icons.Default.Edit,
+                contentDescription = null,
+                tint = if (isManual) AccentGold else Color(0xFF94A3B8),
+                modifier = Modifier.size(22.dp)
+              )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                text = "Manual Ledger Entry",
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = Color.White
+              )
+              Spacer(modifier = Modifier.height(4.dp))
+              Text(
+                text = "Track your opening cash balance and manually enter receipts, tea, groceries, and travel expenses.",
+                fontSize = 12.sp,
+                color = Color(0xFF94A3B8),
+                lineHeight = 17.sp
+              )
+            }
+          }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Dynamic Configuration Form
+        Card(
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = NavySurface),
           modifier = Modifier.fillMaxWidth()
         ) {
-          Spacer(modifier = Modifier.height(16.dp))
-
-          Box(
-            modifier = Modifier
-              .size(90.dp)
-              .clip(CircleShape)
-              .background(NavySurface),
-            contentAlignment = Alignment.Center
-          ) {
-            Icon(
-              imageVector = current.icon,
-              contentDescription = current.title,
-              tint = AccentGold,
-              modifier = Modifier.size(48.dp)
-            )
-          }
-
-          Spacer(modifier = Modifier.height(24.dp))
-
-          Text(
-            text = current.title,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center
-          )
-
-          Spacer(modifier = Modifier.height(8.dp))
-
-          Text(
-            text = current.subtitle,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center
-          )
-
-          Spacer(modifier = Modifier.height(16.dp))
-
-          Text(
-            text = current.description,
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            lineHeight = 22.sp,
-            modifier = Modifier.padding(horizontal = 8.dp)
-          )
-
-          Spacer(modifier = Modifier.height(24.dp))
-
-          // Specific input forms for Steps 9 and 10
-          if (targetStepNum == 9) {
-            Card(
-              shape = RoundedCornerShape(16.dp),
-              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-              modifier = Modifier.fillMaxWidth()
-            ) {
-              Column(modifier = Modifier.padding(18.dp)) {
+          Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // ONLY show opening balance if manual ledger mode is chosen!
+            AnimatedVisibility(visible = setupMode == SetupMode.MANUAL_LEDGER) {
+              Column {
                 Text(
-                  text = "Initial Balance (₹) — optional. Your real SBI balance is fetched automatically after WhatsApp link",
+                  text = "Opening Account / Cash Balance (₹)",
                   fontSize = 13.sp,
                   fontWeight = FontWeight.SemiBold,
-                  color = MaterialTheme.colorScheme.onSurface
+                  color = Color.White
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 OutlinedTextField(
-                  value = initialBalanceText,
-                  onValueChange = { initialBalanceText = it },
-                  placeholder = { Text("0") },
+                  value = manualBalanceText,
+                  onValueChange = { manualBalanceText = it },
+                  placeholder = { Text("e.g. 5000") },
                   keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                   singleLine = true,
                   modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("initial_balance_input")
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                  text = "Target Daily Spending Limit (₹)",
-                  fontSize = 13.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                  value = dailyLimitText,
-                  onValueChange = { dailyLimitText = it },
-                  placeholder = { Text("e.g. 500") },
-                  keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                  singleLine = true,
-                  modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("daily_limit_input")
+                    .testTag("manual_initial_balance_input")
                 )
               }
             }
-          }
 
-          if (targetStepNum == 10) {
-            Column(
-              modifier = Modifier.fillMaxWidth(),
-              verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            // Daily Spending Limit (Asked for both, default 500)
+            Column {
               Text(
-                text = "Select Primary Bank Account:",
+                text = "Daily Spending Limit (₹)",
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
               )
+              Spacer(modifier = Modifier.height(6.dp))
+              OutlinedTextField(
+                value = dailyLimitText,
+                onValueChange = { dailyLimitText = it },
+                placeholder = { Text("500") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .testTag("daily_limit_input")
+              )
+              Text(
+                text = "Alerts you when you approach your daily budget.",
+                fontSize = 11.sp,
+                color = Color(0xFF94A3B8),
+                modifier = Modifier.padding(top = 4.dp)
+              )
+            }
 
-              supportedBanks.forEach { bank ->
-                val isSelected = selectedBank == bank
-                Row(
-                  modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (isSelected) NavySurface else MaterialTheme.colorScheme.surface)
-                    .border(
-                      width = 1.dp,
-                      color = if (isSelected) AccentGold else MaterialTheme.colorScheme.outline,
-                      shape = RoundedCornerShape(14.dp)
-                    )
-                    .clickable { selectedBank = bank }
-                    .padding(14.dp),
-                  horizontalArrangement = Arrangement.SpaceBetween,
-                  verticalAlignment = Alignment.CenterVertically
-                ) {
-                  Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                      imageVector = Icons.Default.AccountBalance,
-                      contentDescription = bank,
-                      tint = if (isSelected) AccentGold else MaterialTheme.colorScheme.primary,
-                      modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                      text = bank,
-                      fontSize = 14.sp,
-                      fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                      color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-                    )
-                  }
-
-                  if (isSelected) {
-                    Icon(
-                      imageVector = Icons.Default.CheckCircle,
-                      contentDescription = "Selected",
-                      tint = AccentGold,
-                      modifier = Modifier.size(18.dp)
-                    )
-                  }
-                }
+            // Bank Selection
+            Column {
+              Text(
+                text = "Primary Bank",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+              )
+              Spacer(modifier = Modifier.height(8.dp))
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clip(RoundedCornerShape(10.dp))
+                  .background(Color(0xFF0F172A))
+                  .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = AccentGold, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(selectedBank, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
               }
             }
           }
@@ -405,36 +347,32 @@ fun OnboardingScreen(
 
       Spacer(modifier = Modifier.height(24.dp))
 
-      // Bottom Action Button
+      // Complete Button
       Button(
         onClick = {
-          if (currentStep < 10) {
-            currentStep++
+          val balance = if (setupMode == SetupMode.AUTOMATIC_WHATSAPP) {
+            0.0 // Will be populated automatically from live SBI statement!
           } else {
-            val balance = initialBalanceText.toDoubleOrNull() ?: 0.0
-            val limit = dailyLimitText.toDoubleOrNull() ?: 500.0
-            onComplete(balance, selectedBank, limit)
+            manualBalanceText.toDoubleOrNull() ?: 0.0
           }
+          val limit = dailyLimitText.toDoubleOrNull() ?: 500.0
+          onComplete(balance, selectedBank, limit)
         },
         modifier = Modifier
           .fillMaxWidth()
           .height(52.dp)
-          .testTag("onboarding_next_button"),
+          .testTag("onboarding_complete_button"),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
       ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text(
-            text = if (currentStep == 10) "Get Started with FinPulse" else "Continue",
+            text = "Start Managing Finances",
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold
           )
           Spacer(modifier = Modifier.width(8.dp))
-          Icon(
-            imageVector = if (currentStep == 10) Icons.Default.Check else Icons.Default.ArrowForward,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-          )
+          Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
         }
       }
     }

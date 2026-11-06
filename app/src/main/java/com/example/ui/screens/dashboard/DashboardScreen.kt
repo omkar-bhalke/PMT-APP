@@ -1,13 +1,8 @@
 package com.example.ui.screens.dashboard
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -40,13 +36,18 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.PendingTransactionDto
+import com.example.data.model.RealBalanceResponse
 import com.example.data.model.TransactionEntity
 import com.example.ui.components.CurrentBalanceCard
 import com.example.ui.components.MonthlyOverviewCard
@@ -64,15 +65,14 @@ fun DashboardScreen(
   onAddTransactionClick: () -> Unit,
   onViewAllTransactionsClick: () -> Unit,
   onPendingTransactionsClick: () -> Unit = {},
-  onSbiBalanceClick: () -> Unit = {},
   onTransactionClick: (TransactionEntity) -> Unit,
   onAiAssistantClick: () -> Unit,
   onConfigureLimitsClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   val uiState by viewModel.uiState.collectAsState()
-  val pendingList by statementViewModel?.pendingTransactions?.collectAsState() ?: remember { mutableStateOf(emptyList()) }
-  val realBalance by statementViewModel?.realBalance?.collectAsState() ?: remember { mutableStateOf(null) }
+  val pendingList by statementViewModel?.pendingTransactions?.collectAsState() ?: remember { mutableStateOf(emptyList<PendingTransactionDto>()) }
+  val realBalance by statementViewModel?.realBalance?.collectAsState() ?: remember { mutableStateOf<RealBalanceResponse?>(null) }
 
   Scaffold(
     containerColor = MaterialTheme.colorScheme.background,
@@ -190,31 +190,10 @@ fun DashboardScreen(
         }
       }
 
-      // Real bank balance from the SBI statement (shown only when a statement was actually received)
-      if (realBalance?.hasData == true) {
-        item {
-          Card(
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth().clickable { onSbiBalanceClick() }
-          ) {
-            Column(Modifier.padding(16.dp)) {
-              Text("SBI balance (from your statement)", fontSize = 12.sp)
-              Text(
-                "₹" + String.format(java.util.Locale("en", "IN"), "%,.2f", realBalance?.currentBalance ?: 0.0),
-                fontSize = 24.sp, fontWeight = FontWeight.Bold
-              )
-              realBalance?.balanceDifference?.let {
-                Text("Last change: " + (if (it >= 0) "+" else "−") + "₹" + String.format(java.util.Locale.US, "%.2f", kotlin.math.abs(it)), fontSize = 12.sp)
-              }
-            }
-          }
-        }
-      }
-
       // 1. Current Available Balance Card
       item {
         CurrentBalanceCard(
-          totalBalance = realBalance?.takeIf { it.hasData }?.currentBalance ?: uiState.totalBalance,
+          totalBalance = uiState.totalBalance,
           initialBalance = uiState.initialBalance,
           totalIncome = uiState.totalIncome,
           totalExpenses = uiState.totalExpenses,

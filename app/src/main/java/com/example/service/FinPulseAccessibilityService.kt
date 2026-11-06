@@ -34,14 +34,19 @@ class FinPulseAccessibilityService : AccessibilityService() {
       return
     }
 
+    // Check if temporary override is active
+    if (AppRestrictionManager.isOverrideActive()) {
+      return
+    }
+
     // Check if this package is restricted by the user
     if (!AppRestrictionManager.isPackageRestricted(applicationContext, packageName)) {
       return
     }
 
-    // Debounce triggers (prevent loop within 3 seconds)
+    // Debounce triggers (prevent loop within 15 seconds)
     val now = System.currentTimeMillis()
-    if (packageName == lastTriggeredPackage && (now - lastTriggeredTimestamp) < 3000L) {
+    if (packageName == lastTriggeredPackage && (now - lastTriggeredTimestamp) < 15000L) {
       return
     }
 
