@@ -73,14 +73,15 @@ object NotificationHelper {
     return PendingIntent.getBroadcast(context, notifId(pendingId) + 1, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
   }
 
-  fun show(context: Context, item: PendingTransactionDto) {
-    if (!canNotify(context)) return
+  /** @return true only if the notification was really posted (so we never mark an unseen one as notified). */
+  fun show(context: Context, item: PendingTransactionDto): Boolean {
+    if (!areNotificationsEnabled(context)) return false
     createChannels(context)
     val title = if (item.isCredit) "Money received" else "New transaction detected"
     val text = question(item)
     val big = text + "\n" + (if (item.isCredit) "Credit" else "Debit") + " • " + item.transactionDate + (if (item.description.isNotBlank()) " • " + item.description else "")
     val n = NotificationCompat.Builder(context, CHANNEL_PENDING)
-      .setSmallIcon(R.mipmap.ic_launcher)
+      .setSmallIcon(R.drawable.ic_stat_notify)
       .setContentTitle(title)
       .setContentText(text)
       .setStyle(NotificationCompat.BigTextStyle().bigText(big))
@@ -93,13 +94,30 @@ object NotificationHelper {
       .addAction(0, "Add details", openIntent(context, item.id))
       .addAction(0, "Snooze 1h", snoozeIntent(context, item.id))
       .build()
-    try { NotificationManagerCompat.from(context).notify(notifId(item.id), n) } catch (_: SecurityException) {}
+    return try { NotificationManagerCompat.from(context).notify(notifId(item.id), n); true } catch (_: SecurityException) { false }
+  }
+
+  fun areNotificationsEnabled(context: Context): Boolean =
+    canNotify(context) && NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+  /** Plain check that notifications work on this phone. It is clearly labelled and is NOT a transaction. */
+  fun showTest(context: Context): Boolean {
+    if (!areNotificationsEnabled(context)) return false
+    createChannels(context)
+    val n = NotificationCompat.Builder(context, CHANNEL_PENDING)
+      .setSmallIcon(R.drawable.ic_stat_notify)
+      .setContentTitle("Test notification")
+      .setContentText("Notifications are working. Real transaction alerts will look like this.")
+      .setPriority(NotificationCompat.PRIORITY_HIGH)
+      .setAutoCancel(true)
+      .build()
+    return try { NotificationManagerCompat.from(context).notify(9_000_002, n); true } catch (_: SecurityException) { false }
   }
 
   fun showSummary(context: Context, count: Int) {
     if (!canNotify(context) || count < 2) return
     val n = NotificationCompat.Builder(context, CHANNEL_PENDING)
-      .setSmallIcon(R.mipmap.ic_launcher)
+      .setSmallIcon(R.drawable.ic_stat_notify)
       .setContentTitle("$count transactions need your input")
       .setContentText("Tell FinPulse what each one was for")
       .setGroup(GROUP).setGroupSummary(true).setAutoCancel(true)

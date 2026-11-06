@@ -55,6 +55,7 @@ fun SbiWhatsAppLinkPanel(vm: StatementAutomationViewModel?) {
   if (vm == null) { Text("Automation module not available."); return }
   val wa by vm.whatsapp.collectAsState()
   val busy by vm.busy.collectAsState()
+  val storagePersistent by vm.storagePersistent.collectAsState()
   val error by vm.error.collectAsState()
   val info by vm.info.collectAsState()
   var phone by remember { mutableStateOf("91") }
@@ -79,6 +80,16 @@ fun SbiWhatsAppLinkPanel(vm: StatementAutomationViewModel?) {
             "It can stop working when WhatsApp changes, and WhatsApp may restrict accounts that automate messages. " +
             "Use a gap of 30 minutes or more and link only an account you can afford to lose access to.",
           fontSize = 12.sp, lineHeight = 17.sp, color = Color(0xFF7C2D12)
+        )
+      }
+    }
+
+    if (!storagePersistent) {
+      Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFEE2E2))) {
+        Text(
+          "Server problem: the Railway server has no Volume attached, so your WhatsApp link would be deleted on every restart and keep disconnecting. " +
+            "Ask the admin to attach a Railway Volume with mount path /data. Linking is disabled until then.",
+          modifier = Modifier.padding(14.dp), fontSize = 12.sp, color = Color(0xFF7F1D1D)
         )
       }
     }

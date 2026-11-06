@@ -538,7 +538,8 @@ data class RwWhatsAppDto(
 
 @JsonClass(generateAdapter = true)
 data class RwStatusResponse(
-  val success: Boolean,
+  val success: Boolean = true,
+  val storagePersistent: Boolean = true,
   val whatsapp: RwWhatsAppDto = RwWhatsAppDto(),
   val unofficialNotice: String? = null,
   val message: String? = null

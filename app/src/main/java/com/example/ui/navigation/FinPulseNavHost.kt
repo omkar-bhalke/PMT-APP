@@ -50,6 +50,7 @@ import com.example.ui.screens.transactions.TransactionListScreen
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.ui.screens.sbi.AutomationSettingsScreen
 import com.example.ui.screens.sbi.BalanceScreen
+import com.example.ui.screens.sbi.PendingPopupHost
 import com.example.ui.screens.sbi.PendingTransactionFormScreen
 import com.example.ui.screens.sbi.PendingTransactionsScreen
 import com.example.viewmodel.AiAssistantViewModel
@@ -104,7 +105,7 @@ fun FinPulseNavHost(
       lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
         while (true) {
           statementViewModel.syncAndNotify()
-          kotlinx.coroutines.delay(45_000)
+          kotlinx.coroutines.delay(30_000)
         }
       }
     }
@@ -149,6 +150,14 @@ fun FinPulseNavHost(
   val currentRoute = navBackStackEntry?.destination?.route
 
   val isBottomNavVisible = currentRoute in Screen.bottomNavItems.map { it.route }
+
+  PendingPopupHost(
+    viewModel = statementViewModel,
+    enabled = loggedIn && currentRoute != null &&
+      currentRoute != Screen.Login.route && currentRoute != Screen.Register.route && currentRoute != Screen.Onboarding.route &&
+      currentRoute != Screen.PendingForm.route,
+    onOpenForm = { id -> navController.navigate(Screen.PendingForm.create(id)) }
+  )
 
   Scaffold(
     snackbarHost = { SnackbarHost(snackbarHostState) },

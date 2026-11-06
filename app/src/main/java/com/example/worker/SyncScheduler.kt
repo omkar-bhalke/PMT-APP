@@ -73,8 +73,8 @@ object PendingNotifier {
   fun process(context: Context, repo: SbiRepository, items: List<com.example.data.model.PendingTransactionDto>) {
     repo.retainNotified(items.map { it.id }.toSet())
     val fresh = repo.itemsToNotify(items)
-    fresh.forEach { NotificationHelper.show(context, it) }
-    if (fresh.isNotEmpty()) repo.markNotified(fresh.map { it.id })
+    val shown = fresh.filter { NotificationHelper.show(context, it) }
+    if (shown.isNotEmpty()) repo.markNotified(shown.map { it.id })
     if (items.size >= 2) NotificationHelper.showSummary(context, items.size) else NotificationHelper.cancelSummary(context)
   }
 }

@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.util.NotificationHelper
 import com.example.viewmodel.StatementAutomationViewModel
 import kotlinx.coroutines.delay
 
@@ -62,11 +63,13 @@ fun AutomationSettingsScreen(
   val error by viewModel.error.collectAsState()
   val info by viewModel.info.collectAsState()
 
+  val context = androidx.compose.ui.platform.LocalContext.current
+  var notifOk by remember { mutableStateOf(NotificationHelper.areNotificationsEnabled(context)) }
   var customValue by remember { mutableStateOf("") }
   var customHours by remember { mutableStateOf(false) }
 
   LaunchedEffect(Unit) {
-    while (true) { viewModel.refreshOverview(); viewModel.refreshWhatsapp(); viewModel.refreshLogs(); delay(10_000) }
+    while (true) { notifOk = NotificationHelper.areNotificationsEnabled(context); viewModel.refreshOverview(); viewModel.refreshWhatsapp(); viewModel.refreshLogs(); delay(10_000) }
   }
 
   val presets = listOf(15 to "15 min", 30 to "30 min", 60 to "1 hour", 120 to "2 hours", 360 to "6 hours")
@@ -85,6 +88,25 @@ fun AutomationSettingsScreen(
     ) {
       error?.let { Banner(it, Color(0xFFFEE2E2), Color(0xFF7F1D1D)) { viewModel.clearError() } }
       info?.let { Banner(it, Color(0xFFDCFCE7), Color(0xFF14532D)) { viewModel.clearInfo() } }
+
+      // ---- notifications check
+      Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          Text(if (notifOk) "Notifications: ON" else "Notifications: OFF", fontWeight = FontWeight.Bold, color = if (notifOk) Color(0xFF10B981) else Color(0xFFEF4444))
+          if (!notifOk) Text("Transaction reminders cannot be shown. Turn notifications ON for FinPulse.", fontSize = 12.sp)
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = {
+              if (NotificationHelper.showTest(context)) viewModel.clearError() else notifOk = false
+            }) { Text("Send test notification") }
+            if (!notifOk) OutlinedButton(onClick = {
+              val i = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+              context.startActivity(i)
+            }) { Text("Open settings") }
+          }
+        }
+      }
 
       // ---- connection + enable
       Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {

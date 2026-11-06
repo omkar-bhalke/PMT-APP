@@ -42,6 +42,9 @@ class StatementAutomationViewModel(app: Application) : AndroidViewModel(app) {
   private val _categories = MutableStateFlow<List<CategoryDto2>>(SbiRepository.BUILTIN_CATEGORIES)
   val categories: StateFlow<List<CategoryDto2>> = _categories.asStateFlow()
 
+  private val _storagePersistent = MutableStateFlow(true)
+  val storagePersistent: StateFlow<Boolean> = _storagePersistent.asStateFlow()
+
   private val _pairingCode = MutableStateFlow<String?>(null)
   val pairingCode: StateFlow<String?> = _pairingCode.asStateFlow()
 
@@ -112,6 +115,7 @@ class StatementAutomationViewModel(app: Application) : AndroidViewModel(app) {
       val s = repo.whatsappStatus()
       if (s is Outcome.Ok) {
         _whatsapp.value = s.data.whatsapp
+        _storagePersistent.value = s.data.storagePersistent
         if (s.data.whatsapp.state != "PAIRING_CODE_READY" && s.data.whatsapp.state != "QR_READY") _pairingCode.value = null
       } else if (!quiet) handleFailure(s)
     }
@@ -215,6 +219,8 @@ class StatementAutomationViewModel(app: Application) : AndroidViewModel(app) {
   fun loadCategories() {
     viewModelScope.launch { _categories.value = repo.categories() }
   }
+
+  fun isSnoozedLocally(id: String): Boolean = repo.isLocallySnoozed(id)
 
   suspend fun loadPendingItem(id: String): PendingTransactionDto? = repo.fetchPendingOne(id)
 
