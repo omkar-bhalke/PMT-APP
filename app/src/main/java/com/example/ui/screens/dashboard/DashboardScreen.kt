@@ -214,7 +214,7 @@ fun DashboardScreen(
       // 1. Current Available Balance Card
       item {
         CurrentBalanceCard(
-          totalBalance = uiState.totalBalance,
+          totalBalance = realBalance?.takeIf { it.hasData }?.currentBalance ?: uiState.totalBalance,
           initialBalance = uiState.initialBalance,
           totalIncome = uiState.totalIncome,
           totalExpenses = uiState.totalExpenses,

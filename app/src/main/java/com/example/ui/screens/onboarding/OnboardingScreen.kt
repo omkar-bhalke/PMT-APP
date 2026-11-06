@@ -88,7 +88,7 @@ fun OnboardingScreen(
   modifier: Modifier = Modifier
 ) {
   var currentStep by remember { mutableIntStateOf(1) }
-  var initialBalanceText by remember { mutableStateOf("5000") }
+  var initialBalanceText by remember { mutableStateOf("0") }
   var dailyLimitText by remember { mutableStateOf("500") }
   var selectedBank by remember { mutableStateOf("State Bank of India (SBI)") }
 
@@ -303,7 +303,7 @@ fun OnboardingScreen(
             ) {
               Column(modifier = Modifier.padding(18.dp)) {
                 Text(
-                  text = "Initial Account Balance (₹)",
+                  text = "Initial Balance (₹) — optional. Your real SBI balance is fetched automatically after WhatsApp link",
                   fontSize = 13.sp,
                   fontWeight = FontWeight.SemiBold,
                   color = MaterialTheme.colorScheme.onSurface
@@ -312,7 +312,7 @@ fun OnboardingScreen(
                 OutlinedTextField(
                   value = initialBalanceText,
                   onValueChange = { initialBalanceText = it },
-                  placeholder = { Text("e.g. 5000") },
+                  placeholder = { Text("0") },
                   keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                   singleLine = true,
                   modifier = Modifier

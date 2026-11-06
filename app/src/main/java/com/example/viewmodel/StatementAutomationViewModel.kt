@@ -207,6 +207,7 @@ class StatementAutomationViewModel(app: Application) : AndroidViewModel(app) {
       if (r is Outcome.Ok) {
         _pending.value = r.data.pending
         com.example.worker.PendingNotifier.process(getApplication(), repo, r.data.pending)
+        (repo.balance() as? Outcome.Ok)?.let { _balance.value = it.data }
       } else if (r is Outcome.AuthRequired) _authRequired.value = true
     }
   }
