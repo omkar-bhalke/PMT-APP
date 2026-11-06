@@ -433,7 +433,7 @@ data class AddCategoryResponse(val success: Boolean, val category: CategoryDto2?
 
 @JsonClass(generateAdapter = true)
 data class RealBalanceResponse(
-  val success: Boolean,
+  val success: Boolean = true, // nested "balance" inside /overview has no "success" key
   val hasData: Boolean = false,
   val currentBalance: Double? = null,
   val previousBalance: Double? = null,
