@@ -329,6 +329,12 @@ data class CloudSettingsDto(
 )
 
 @JsonClass(generateAdapter = true)
+data class CloudWhatsAppDto(
+  val connected: Boolean = false,
+  val phoneNumber: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class CloudAccountDto(
   val initialBalance: Double = 0.0,
   val currentBalance: Double = 0.0,
