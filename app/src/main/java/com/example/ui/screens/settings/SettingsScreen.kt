@@ -38,7 +38,7 @@ import androidx.compose.material.icons.filled.PhonelinkLock
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.VpnKey
-import androidx.compose.material3.AlertDialog
+import com.example.ui.components.GlassAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -77,6 +77,7 @@ import com.example.ui.theme.NavySurface
 import com.example.ui.theme.PrimaryBlue
 import com.example.viewmodel.SettingsViewModel
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
   viewModel: SettingsViewModel,
@@ -84,9 +85,9 @@ fun SettingsScreen(
   onNavigateToAppRestrictions: () -> Unit,
   onNavigateToAutomationSettings: () -> Unit = {},
   onNavigateToPendingTransactions: () -> Unit = {},
-  onNavigateToEditProfile: () -> Unit = {},
-  onNavigateToAdminPanel: () -> Unit = {},
-  onReplayTutorial: () -> Unit,
+  onReplayTutorial: () -> Unit = {},
+  onNavigateToProfile: () -> Unit = {},
+  mainViewModel: com.example.viewmodel.MainViewModel? = null,
   onLogout: () -> Unit,
   modifier: Modifier = Modifier
 ) {
@@ -102,6 +103,7 @@ fun SettingsScreen(
   var showRealAiConfigDialog by remember { mutableStateOf(false) }
   var showThemeDialog by remember { mutableStateOf(false) }
   var showSecurityDialog by remember { mutableStateOf(false) }
+  var showTrackingDialog by remember { mutableStateOf(false) }
   var showBankIntegrationInfoDialog by remember { mutableStateOf(false) }
 
   Scaffold(
@@ -118,91 +120,39 @@ fun SettingsScreen(
       item {
         Column {
           Text(
-            text = "Settings & Governance",
+            text = "Settings",
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
           )
           Text(
-            text = "Account credentials, device binding, AI engines & restrictions",
+            text = "Your profile, balance tracking, AI and payment-app limits",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
         }
       }
 
-      // 1. Profile & One Device = One Account Card (Tasks 1 & 2)
+      // 1. Profile + how the balance is tracked
       item {
-        Card(
-          shape = RoundedCornerShape(20.dp),
-          colors = CardDefaults.cardColors(containerColor = NavySurface),
-          modifier = Modifier.fillMaxWidth().testTag("profile_settings_card")
-        ) {
-          Column(modifier = Modifier.padding(18.dp)) {
+        com.example.ui.components.GlassBackground(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))) {
+          Column(Modifier.fillMaxWidth().padding(18.dp).testTag("profile_settings_card")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-              Box(
-                modifier = Modifier
-                  .size(48.dp)
-                  .clip(CircleShape)
-                  .background(AccentGold),
-                contentAlignment = Alignment.Center
-              ) {
-                Text(
-                  text = (settings.userName.takeIf { it.isNotBlank() } ?: "U").take(1).uppercase(),
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 20.sp,
-                  color = Color(0xFF0F172A)
-                )
+              Box(Modifier.size(54.dp).clip(CircleShape).background(com.example.ui.components.Glass.Primary), contentAlignment = Alignment.Center) {
+                Text((settings.userName.takeIf { it.isNotBlank() } ?: "U").take(1).uppercase(), fontWeight = FontWeight.Bold, fontSize = 22.sp, color = Color.White)
               }
-              Spacer(modifier = Modifier.width(14.dp))
-              Column(modifier = Modifier.weight(1f)) {
-                Text(
-                  text = settings.userName.ifBlank { "FinPulse User" },
-                  fontSize = 16.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = Color.White
-                )
-                Text(
-                  text = settings.userEmail.ifBlank { "user@finpulse.app" },
-                  fontSize = 12.sp,
-                  color = Color(0xFF94A3B8)
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                  text = "Email & Password Verified",
-                  fontSize = 10.sp,
-                  color = IncomeGreen,
-                  fontWeight = FontWeight.SemiBold
-                )
-              }
-
-              TextButton(onClick = onNavigateToEditProfile) {
-                Text("Edit Profile", color = AccentGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+              Spacer(Modifier.width(14.dp))
+              Column(Modifier.weight(1f)) {
+                Text(settings.userName.ifBlank { "Your name" }, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(settings.userEmail, fontSize = 12.sp, color = Color(0xFFA5B1CC))
               }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Security Badge
-            Row(
-              modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0D1B2A))
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Icon(
-                imageVector = Icons.Default.Security,
-                contentDescription = null,
-                tint = AccentGold,
-                modifier = Modifier.size(14.dp)
-              )
-              Spacer(modifier = Modifier.width(6.dp))
-              Text(
-                text = "Account Security: Hardware-Backed Protection Active",
-                fontSize = 10.sp,
-                color = Color(0xFFCBD5E1)
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+              com.example.ui.components.GlassButton("Edit profile", onNavigateToProfile, Modifier.weight(1f), style = com.example.ui.components.GlassButtonStyle.Soft)
+              com.example.ui.components.GlassButton(
+                if (settings.trackingMode == "AUTO") "Automatic balance" else "Manual balance",
+                { showTrackingDialog = true }, Modifier.weight(1f), style = com.example.ui.components.GlassButtonStyle.Soft
               )
             }
           }
@@ -410,21 +360,9 @@ fun SettingsScreen(
               onClick = { showThemeDialog = true }
             )
             SettingsItemRow(
-              icon = Icons.Default.Help,
-              title = "Interactive Tutorial",
-              subtitle = "Replay onboarding walkthrough",
-              onClick = onReplayTutorial
-            )
-            SettingsItemRow(
-              icon = Icons.Default.TrackChanges,
-              title = "System Administration Console",
-              subtitle = "View detailed statistics, telemetry, and service health",
-              onClick = onNavigateToAdminPanel
-            )
-            SettingsItemRow(
               icon = Icons.Default.Security,
-              title = "Zero-Trust Architecture & Device Reset",
-              subtitle = "View hardware binding & encryption details",
+              title = "Privacy & security",
+              subtitle = "How your data is protected",
               onClick = { showSecurityDialog = true }
             )
           }
@@ -460,112 +398,72 @@ fun SettingsScreen(
 
   // Real AI Configuration Dialog (Task 4)
   if (showRealAiConfigDialog) {
+    val providersFromServer by viewModel.aiProviders.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(Unit) { viewModel.loadAiProviders() }
+    val providers = providersFromServer.ifEmpty {
+      listOf("GEMINI" to "Gemini", "OPENAI" to "ChatGPT", "ANTHROPIC" to "Claude", "DEEPSEEK" to "DeepSeek", "GROQ" to "Groq", "MISTRAL" to "Mistral",
+        "OPENROUTER" to "OpenRouter", "XAI" to "Grok", "TOGETHER" to "Together", "PERPLEXITY" to "Perplexity", "CUSTOM" to "Other")
+        .map { com.example.data.model.AiProviderDto(it.first, it.second, it.first == "CUSTOM") }
+    }
     var selectedProvider by remember { mutableStateOf(aiConfig?.provider ?: "GEMINI") }
     var apiKeyInput by remember { mutableStateOf("") }
+    var modelInput by remember { mutableStateOf("") }
+    var baseUrlInput by remember { mutableStateOf("") }
     var isValidating by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
-    var validationSuccess by remember { mutableStateOf<String?>(null) }
+    val needsBase = providers.firstOrNull { it.id == selectedProvider }?.needsBaseUrl == true
 
-    AlertDialog(
-      onDismissRequest = { showRealAiConfigDialog = false },
-      title = { Text("Configure Real AI Intelligence", fontWeight = FontWeight.Bold) },
-      text = {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-          Text(
-            text = "Select your AI provider and enter your API key. The backend tests the key live with Google Gemini or OpenAI before securely saving it (encrypted with AES-256-CBC).",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-
-          if (validationError != null) {
-            Text(text = validationError!!, color = ExpenseRed, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-          }
-          if (validationSuccess != null) {
-            Text(text = validationSuccess!!, color = IncomeGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-          }
-
-          // Provider selector
-          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-              onClick = { selectedProvider = "GEMINI" },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = if (selectedProvider == "GEMINI") PrimaryBlue else Color.LightGray
-              ),
-              modifier = Modifier.weight(1f)
-            ) {
-              Text("Gemini", fontSize = 12.sp)
-            }
-
-            Button(
-              onClick = { selectedProvider = "OPENAI" },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = if (selectedProvider == "OPENAI") PrimaryBlue else Color.LightGray
-              ),
-              modifier = Modifier.weight(1f)
-            ) {
-              Text("OpenAI", fontSize = 12.sp)
-            }
-          }
-
-          OutlinedTextField(
-            value = apiKeyInput,
-            onValueChange = {
-              apiKeyInput = it
-              validationError = null
-              validationSuccess = null
-            },
-            label = { Text("API Key (e.g. AIzaSy... or sk-...)") },
-            placeholder = { Text(if (selectedProvider == "GEMINI") "AIzaSy..." else "sk-...") },
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("ai_api_key_input")
-          )
-        }
+    com.example.ui.components.GlassDialog(
+      onDismiss = { showRealAiConfigDialog = false },
+      title = "Connect your AI",
+      icon = Icons.Default.AutoAwesome,
+      iconTint = com.example.ui.components.Glass.Violet,
+      message = "Paste your own API key. It is tested right away and stored encrypted.",
+      dismissOnOutside = false,
+      actions = {
+        com.example.ui.components.GlassButton(
+          "Connect", {
+            if (apiKeyInput.trim().isBlank()) { validationError = "Please enter your API key."; return@GlassButton }
+            if (needsBase && baseUrlInput.isBlank()) { validationError = "Enter the https address of the service."; return@GlassButton }
+            isValidating = true; validationError = null
+            viewModel.validateAndSaveAiConfig(
+              provider = selectedProvider, apiKey = apiKeyInput.trim(),
+              onSuccess = { msg -> isValidating = false; Toast.makeText(context, msg, Toast.LENGTH_SHORT).show(); showRealAiConfigDialog = false },
+              onError = { err -> isValidating = false; validationError = err },
+              model = modelInput, baseUrl = baseUrlInput
+            )
+          }, Modifier.fillMaxWidth().testTag("validate_save_ai_key_button"), loading = isValidating
+        )
+        com.example.ui.components.GlassButton("Cancel", { showRealAiConfigDialog = false }, Modifier.fillMaxWidth(), style = com.example.ui.components.GlassButtonStyle.Soft)
       },
-      confirmButton = {
-        if (isValidating) {
-          CircularProgressIndicator(modifier = Modifier.size(24.dp))
-        } else {
-          Button(
-            onClick = {
-              if (apiKeyInput.trim().isBlank()) {
-                validationError = "Please enter an API key."
-                return@Button
-              }
-              isValidating = true
-              validationError = null
-              validationSuccess = null
-              viewModel.validateAndSaveAiConfig(
-                provider = selectedProvider,
-                apiKey = apiKeyInput.trim(),
-                onSuccess = { msg ->
-                  isValidating = false
-                  validationSuccess = msg
-                  Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                  showRealAiConfigDialog = false
-                },
-                onError = { err ->
-                  isValidating = false
-                  validationError = err
-                }
+      body = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          validationError?.let { com.example.ui.components.GlassMessage(it) }
+          androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            providers.forEach { p ->
+              androidx.compose.material3.FilterChip(
+                selected = selectedProvider == p.id, onClick = { selectedProvider = p.id; validationError = null },
+                label = { Text(p.label.substringBefore(" ("), fontSize = 12.sp) },
+                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                  labelColor = com.example.ui.components.Glass.TextHi, selectedLabelColor = Color.White,
+                  containerColor = Color.White.copy(alpha = 0.08f), selectedContainerColor = com.example.ui.components.Glass.Indigo.copy(alpha = 0.75f)
+                )
               )
-            },
-            modifier = Modifier.testTag("validate_save_ai_key_button")
-          ) {
-            Text("Validate & Save Key")
+            }
           }
+          com.example.ui.components.GlassTextField(apiKeyInput, { apiKeyInput = it; validationError = null }, "API key", password = true, modifier = Modifier.testTag("ai_api_key_input"))
+          if (needsBase) com.example.ui.components.GlassTextField(baseUrlInput, { baseUrlInput = it }, "Service address (https://…/v1)")
+          com.example.ui.components.GlassTextField(modelInput, { modelInput = it }, "Model (optional)", supportingText = "Leave empty to pick automatically")
         }
-      },
-      dismissButton = {
-        TextButton(onClick = { showRealAiConfigDialog = false }) { Text("Cancel") }
       }
     )
   }
 
+
   // Daily Spending Limit Dialog
   if (showDailyLimitDialog) {
     var limitInput by remember { mutableStateOf(settings.dailySpendingLimit.toInt().toString()) }
-    AlertDialog(
+    GlassAlertDialog(
       onDismissRequest = { showDailyLimitDialog = false },
       title = { Text("Daily Spending Limit") },
       text = {
@@ -598,7 +496,7 @@ fun SettingsScreen(
   // Initial Balance Dialog
   if (showInitialBalanceDialog) {
     var balInput by remember { mutableStateOf(settings.initialBalance.toInt().toString()) }
-    AlertDialog(
+    GlassAlertDialog(
       onDismissRequest = { showInitialBalanceDialog = false },
       title = { Text("Initial Account Balance") },
       text = {
@@ -631,7 +529,7 @@ fun SettingsScreen(
   // Bank Selection Dialog
   if (showBankSelectionDialog) {
     val banks = listOf("State Bank of India (SBI)", "HDFC Bank", "ICICI Bank", "Punjab National Bank (PNB)", "Bank of Baroda", "Other Indian Bank")
-    AlertDialog(
+    GlassAlertDialog(
       onDismissRequest = { showBankSelectionDialog = false },
       title = { Text("Select Primary Bank") },
       text = {
@@ -667,7 +565,7 @@ fun SettingsScreen(
   if (showAddCategoryDialog) {
     var catName by remember { mutableStateOf("") }
     var catType by remember { mutableStateOf(TransactionType.EXPENSE) }
-    AlertDialog(
+    GlassAlertDialog(
       onDismissRequest = { showAddCategoryDialog = false },
       title = { Text("Add Custom Category") },
       text = {
@@ -711,7 +609,7 @@ fun SettingsScreen(
 
   // Theme Appearance Dialog
   if (showThemeDialog) {
-    AlertDialog(
+    GlassAlertDialog(
       onDismissRequest = { showThemeDialog = false },
       title = { Text("Theme Appearance") },
       text = {
@@ -738,7 +636,7 @@ fun SettingsScreen(
 
   // Future Bank Integration Info
   if (showBankIntegrationInfoDialog) {
-    AlertDialog(
+    GlassAlertDialog(
       onDismissRequest = { showBankIntegrationInfoDialog = false },
       title = { Text("Bank Transaction Architecture") },
       text = {
@@ -756,23 +654,58 @@ fun SettingsScreen(
 
   // Security & Cloud Architecture Info
   if (showSecurityDialog) {
-    AlertDialog(
-      onDismissRequest = { showSecurityDialog = false },
-      title = { Text("Privacy & Zero-Trust Cloud Architecture") },
-      text = {
+    com.example.ui.components.GlassDialog(
+      onDismiss = { showSecurityDialog = false },
+      title = "Privacy & security",
+      icon = Icons.Default.Security,
+      iconTint = com.example.ui.components.Glass.Mint,
+      actions = { com.example.ui.components.GlassButton("Done", { showSecurityDialog = false }, Modifier.fillMaxWidth()) },
+      body = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          Text("• cPanel Central Database: MySQL hosted on https://radhewins.buzz.")
-          Text("• Permanent Cloud Storage: All accounts, transactions, and settings survive reinstalls.")
-          Text("• One Device = One Account: Bound via Android Keystore EC Key & Hardware Fingerprint.")
-          Text("• Monies stored using DECIMAL(14,2) for exact mathematical precision.")
-          Text("• AI Keys: Encrypted at rest using AES-256-CBC with per-user salt.")
-          Text("• Session tokens: JWT with automatic refresh cycle and X-Device-Id verification.")
-          Text("• Offline local caching: Encrypted Android Room with idempotent sync keys.")
+          listOf(
+            "Your account works on one phone at a time. Signing in somewhere else signs this phone out.",
+            "We never ask for your bank password, PIN or OTP.",
+            "Your data is saved on your account and comes back after a reinstall.",
+            "Your AI key is stored encrypted and is never shown again.",
+            "Only your own SBI statement chat is read. Other chats are never opened."
+          ).forEach { Text("• $it", color = com.example.ui.components.Glass.TextHi, fontSize = 13.sp, lineHeight = 18.sp) }
         }
-      },
-      confirmButton = { Button(onClick = { showSecurityDialog = false }) { Text("Done") } }
+      }
     )
   }
+
+  if (showTrackingDialog && mainViewModel != null) {
+    var pickMode by remember { mutableStateOf(if (settings.trackingMode == "MANUAL") "MANUAL" else "AUTO") }
+    var balanceInput by remember { mutableStateOf("") }
+    var trackErr by remember { mutableStateOf<String?>(null) }
+    var trackBusy by remember { mutableStateOf(false) }
+    com.example.ui.components.GlassDialog(
+      onDismiss = { showTrackingDialog = false },
+      title = "Balance tracking",
+      icon = Icons.Default.AccountBalance,
+      message = "Choose how FinPulse keeps your balance.",
+      actions = {
+        com.example.ui.components.GlassButton(
+          "Save", {
+            val bal = balanceInput.toDoubleOrNull()
+            if (pickMode == "MANUAL" && bal == null) { trackErr = "Enter your current balance."; return@GlassButton }
+            trackBusy = true; trackErr = null
+            mainViewModel.changeTrackingMode(pickMode, bal, onDone = { trackBusy = false; showTrackingDialog = false }, onError = { trackBusy = false; trackErr = it })
+          }, Modifier.fillMaxWidth(), loading = trackBusy
+        )
+        com.example.ui.components.GlassButton("Cancel", { showTrackingDialog = false }, Modifier.fillMaxWidth(), style = com.example.ui.components.GlassButtonStyle.Soft)
+      },
+      body = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+          com.example.ui.components.GlassButton("Automatic: from my bank statement" + if (pickMode == "AUTO") "  ✓" else "", { pickMode = "AUTO" }, Modifier.fillMaxWidth(), style = if (pickMode == "AUTO") com.example.ui.components.GlassButtonStyle.Primary else com.example.ui.components.GlassButtonStyle.Soft)
+          com.example.ui.components.GlassButton("Manual: I type everything" + if (pickMode == "MANUAL") "  ✓" else "", { pickMode = "MANUAL" }, Modifier.fillMaxWidth(), style = if (pickMode == "MANUAL") com.example.ui.components.GlassButtonStyle.Primary else com.example.ui.components.GlassButtonStyle.Soft)
+          if (pickMode == "MANUAL") com.example.ui.components.GlassTextField(balanceInput, { balanceInput = it.filter { c -> c.isDigit() || c == '.' }.take(12) }, "Current balance (₹)", keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
+          trackErr?.let { com.example.ui.components.GlassMessage(it) }
+        }
+      }
+    )
+  }
+
 }
 
 @Composable

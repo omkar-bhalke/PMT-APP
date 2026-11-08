@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">FinPulse</string>
-    <string name="accessibility_service_description">FinPulse Spending Guardian monitors user-selected payment applications to prevent inadvertent overspending when your configured daily spending limit has been reached.</string>
+    <string name="accessibility_service_description">FinPulse Spending Guardian only notices when a payment app you selected is opened. If your daily spending limit is reached it shows a reminder over that app. It does not read your screen, messages or passwords.</string>
+    <string name="widget_description">Your balance, today\'s spending and new transactions at a glance.</string>
 </resources>

@@ -1,47 +1,29 @@
 package com.example.ui.screens.settings
 
-import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,240 +31,134 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.ui.components.Glass
+import com.example.ui.components.GlassBackground
+import com.example.ui.components.GlassButton
+import com.example.ui.components.GlassButtonStyle
+import com.example.ui.components.GlassCard
+import com.example.ui.components.GlassIconBadge
 import com.example.ui.screens.restriction.AppRestrictionManager
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.NavySurface
-import com.example.ui.theme.PrimaryBlue
+import java.text.NumberFormat
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+private fun rupees(v: Double) = "₹" + NumberFormat.getNumberInstance(Locale("en", "IN")).apply { maximumFractionDigits = 0 }.format(v)
+
+/** Choose which payment apps are paused after today's limit is reached. */
 @Composable
-fun AppRestrictionSettingsScreen(
-  onNavigateBack: () -> Unit,
-  modifier: Modifier = Modifier
-) {
+fun AppRestrictionSettingsScreen(onNavigateBack: () -> Unit, modifier: Modifier = Modifier) {
   val context = LocalContext.current
   val lifecycleOwner = LocalLifecycleOwner.current
 
-  var isFeatureActive by remember { mutableStateOf(AppRestrictionManager.isFeatureEnabled(context)) }
-  var isAccessibilityGranted by remember { mutableStateOf(AppRestrictionManager.isAccessibilityServiceEnabled(context)) }
-
-  // App selection map
-  val appRestrictedMap = remember {
+  var featureOn by remember { mutableStateOf(AppRestrictionManager.isFeatureEnabled(context)) }
+  var granted by remember { mutableStateOf(AppRestrictionManager.isAccessibilityServiceEnabled(context)) }
+  var today by remember { mutableStateOf<Triple<Boolean, Double, Double>?>(null) }
+  val appOn = remember {
     mutableStateMapOf<String, Boolean>().apply {
-      AppRestrictionManager.KNOWN_PAYMENT_PACKAGES.forEach { item ->
-        put(item.packageName, AppRestrictionManager.isPackageRestricted(context, item.packageName))
-      }
+      AppRestrictionManager.KNOWN_PAYMENT_PACKAGES.forEach { put(it.packageName, AppRestrictionManager.isPackageRestricted(context, it.packageName)) }
     }
   }
 
-  // Auto-refresh permission status when user returns from Android Settings
   DisposableEffect(lifecycleOwner) {
-    val observer = LifecycleEventObserver { _, event ->
-      if (event == Lifecycle.Event.ON_RESUME) {
-        isAccessibilityGranted = AppRestrictionManager.isAccessibilityServiceEnabled(context)
-      }
-    }
-    lifecycleOwner.lifecycle.addObserver(observer)
-    onDispose {
-      lifecycleOwner.lifecycle.removeObserver(observer)
-    }
+    val obs = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) granted = AppRestrictionManager.isAccessibilityServiceEnabled(context) }
+    lifecycleOwner.lifecycle.addObserver(obs)
+    onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
   }
+  LaunchedEffect(Unit) { today = AppRestrictionManager.checkSpendingLimitExceeded(context) }
 
-  Scaffold(
-    topBar = {
-      TopAppBar(
-        title = { Text("Payment App Restrictions", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-        navigationIcon = {
-          IconButton(onClick = onNavigateBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+  val active = featureOn && granted
+
+  GlassBackground(modifier) {
+    Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Glass.TextHi) }
+        Text("Spending Guardian", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Glass.TextHi)
+      }
+      Spacer(Modifier.height(8.dp))
+
+      GlassCard(Modifier.fillMaxWidth(), tint = if (active) Glass.Mint else Glass.Amber) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          GlassIconBadge(Icons.Default.Shield, if (active) Glass.Mint else Glass.Amber, 52.dp)
+          Spacer(Modifier.width(14.dp))
+          Column(Modifier.weight(1f)) {
+            Text(if (active) "Guardian is on" else if (!granted) "One permission needed" else "Guardian is paused", fontWeight = FontWeight.Bold, color = Glass.TextHi, fontSize = 17.sp)
+            val t = today
+            Text(
+              if (t != null && t.third > 0) "Today: ${rupees(t.second)} of ${rupees(t.third)}" else "Set a daily limit in Settings",
+              color = Glass.TextLo, fontSize = 13.sp
+            )
           }
+          Switch(
+            checked = featureOn, onCheckedChange = { featureOn = it; AppRestrictionManager.setFeatureEnabled(context, it) },
+            colors = SwitchDefaults.colors(checkedTrackColor = Glass.Mint, checkedThumbColor = Color.White)
+          )
         }
-      )
-    }
-  ) { innerPadding ->
-    LazyColumn(
-      modifier = modifier
-        .fillMaxSize()
-        .padding(innerPadding)
-        .padding(horizontal = 20.dp, vertical = 8.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-      // 1. Feature Master Toggle Card
-      item {
-        Card(
-          shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Column(modifier = Modifier.weight(1f)) {
-              Text(
-                text = "Spending Limit Guardian",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-              )
-              Text(
-                text = "Monitor payment apps and display warning when daily limit is exceeded",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-              )
+      }
+
+      if (!granted) {
+        Spacer(Modifier.height(14.dp))
+        GlassCard(Modifier.fillMaxWidth()) {
+          Text("Turn it on in 3 steps", fontWeight = FontWeight.Bold, color = Glass.TextHi, fontSize = 16.sp)
+          Spacer(Modifier.height(8.dp))
+          listOf(
+            "Tap “Open accessibility settings”.",
+            "Open “Installed apps” (or “Downloaded apps”) and choose FinPulse.",
+            "Switch it ON and press Allow."
+          ).forEachIndexed { i, s -> Text("${i + 1}. $s", color = Glass.TextLo, fontSize = 13.sp, lineHeight = 19.sp) }
+          Spacer(Modifier.height(12.dp))
+          GlassButton("Open accessibility settings", { AppRestrictionManager.openAccessibilitySettings(context) }, Modifier.fillMaxWidth())
+          Spacer(Modifier.height(14.dp))
+          Text("The switch is greyed out?", fontWeight = FontWeight.SemiBold, color = Glass.Amber, fontSize = 13.sp)
+          Text(
+            "Android 13+ locks this for apps installed from a file. Open App info, tap the ⋮ menu (top right) and choose “Allow restricted settings”, then go back and repeat the steps.",
+            color = Glass.TextLo, fontSize = 12.sp, lineHeight = 18.sp
+          )
+          Spacer(Modifier.height(10.dp))
+          GlassButton("Open App info", { AppRestrictionManager.openAppInfo(context) }, Modifier.fillMaxWidth(), style = GlassButtonStyle.Soft)
+        }
+      }
+
+      Spacer(Modifier.height(18.dp))
+      Text("Payment apps to pause", fontWeight = FontWeight.Bold, color = Glass.TextHi, fontSize = 16.sp)
+      Text("Only the apps switched on here are paused, and only after today's limit is reached. Nothing else on your phone is affected.", color = Glass.TextLo, fontSize = 12.sp, lineHeight = 17.sp)
+      Spacer(Modifier.height(10.dp))
+
+      val items = AppRestrictionManager.KNOWN_PAYMENT_PACKAGES.sortedByDescending { AppRestrictionManager.isInstalled(context, it.packageName) }
+      items.forEach { item ->
+        val installed = AppRestrictionManager.isInstalled(context, item.packageName)
+        GlassCard(Modifier.fillMaxWidth().padding(vertical = 4.dp), corner = 18.dp, contentPadding = 14.dp) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+              Text(item.appName, color = if (installed) Glass.TextHi else Glass.TextLo, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+              Text(if (installed) "Installed" else "Not installed on this phone", color = Glass.TextLo, fontSize = 11.sp)
             }
             Switch(
-              checked = isFeatureActive,
-              onCheckedChange = {
-                isFeatureActive = it
-                AppRestrictionManager.setFeatureEnabled(context, it)
-              },
-              modifier = Modifier.testTag("app_restriction_master_switch")
+              checked = appOn[item.packageName] == true,
+              onCheckedChange = { appOn[item.packageName] = it; AppRestrictionManager.setPackageRestricted(context, item.packageName, it) },
+              colors = SwitchDefaults.colors(checkedTrackColor = Glass.Indigo, checkedThumbColor = Color.White)
             )
           }
         }
       }
 
-      // 2. Android Accessibility Permission Card
-      item {
-        Card(
-          shape = RoundedCornerShape(16.dp),
-          colors = CardDefaults.cardColors(
-            containerColor = if (isAccessibilityGranted) IncomeGreen.copy(alpha = 0.1f) else NavySurface
-          ),
-          modifier = Modifier.fillMaxWidth().testTag("accessibility_permission_card")
-        ) {
-          Column(modifier = Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Box(
-                modifier = Modifier
-                  .size(36.dp)
-                  .clip(CircleShape)
-                  .background(if (isAccessibilityGranted) IncomeGreen.copy(alpha = 0.2f) else AccentGold.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-              ) {
-                Icon(
-                  imageVector = if (isAccessibilityGranted) Icons.Default.CheckCircle else Icons.Default.Security,
-                  contentDescription = null,
-                  tint = if (isAccessibilityGranted) IncomeGreen else AccentGold,
-                  modifier = Modifier.size(20.dp)
-                )
-              }
-              Spacer(modifier = Modifier.width(12.dp))
-              Column {
-                Text(
-                  text = if (isAccessibilityGranted) "Accessibility Service Enabled" else "Accessibility Permission Required",
-                  fontSize = 14.sp,
-                  fontWeight = FontWeight.Bold,
-                  color = if (isAccessibilityGranted) IncomeGreen else Color.White
-                )
-                Text(
-                  text = if (isAccessibilityGranted) "Active: Detecting restricted payment app launches locally" else "Android requires explicit manual consent in Accessibility Settings",
-                  fontSize = 11.sp,
-                  color = if (isAccessibilityGranted) MaterialTheme.colorScheme.onSurface else Color(0xFF94A3B8)
-                )
-              }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-              text = "Why is this needed? To intercept payment apps when you exceed your daily allowance, Android's AccessibilityService API observes window events locally. FinPulse never reads text, keystrokes, passwords, or personal contents.",
-              fontSize = 12.sp,
-              color = if (isAccessibilityGranted) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFE2E8F0),
-              lineHeight = 17.sp
-            )
-
-            if (!isAccessibilityGranted) {
-              Spacer(modifier = Modifier.height(14.dp))
-              Button(
-                onClick = { AppRestrictionManager.openAccessibilitySettings(context) },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentGold),
-                modifier = Modifier.fillMaxWidth().testTag("enable_accessibility_button")
-              ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  Icon(Icons.Default.OpenInNew, contentDescription = null, tint = Color(0xFF0F172A), modifier = Modifier.size(16.dp))
-                  Spacer(modifier = Modifier.width(8.dp))
-                  Text("Enable in Android Settings", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // 3. Monitored Payment Apps List
-      item {
+      Spacer(Modifier.height(16.dp))
+      GlassCard(Modifier.fillMaxWidth()) {
+        Text("How it works", fontWeight = FontWeight.Bold, color = Glass.TextHi, fontSize = 15.sp)
+        Spacer(Modifier.height(6.dp))
         Text(
-          text = "Select Payment Applications to Guard",
-          fontSize = 14.sp,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.primary
+          "When you open one of these apps after reaching your daily limit, a small reminder appears over that app only and takes you back to the home screen. " +
+            "It never reads your screen, messages or passwords. If it is really urgent, tap “I have an emergency”.",
+          color = Glass.TextLo, fontSize = 12.sp, lineHeight = 18.sp
         )
       }
-
-      items(AppRestrictionManager.KNOWN_PAYMENT_PACKAGES) { item ->
-        val isChecked = appRestrictedMap[item.packageName] ?: false
-        Card(
-          shape = RoundedCornerShape(14.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .clickable {
-                val newVal = !isChecked
-                appRestrictedMap[item.packageName] = newVal
-                AppRestrictionManager.setPackageRestricted(context, item.packageName, newVal)
-              }
-              .padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Column(modifier = Modifier.weight(1f)) {
-              Text(
-                text = item.appName,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-              )
-              Text(
-                text = item.packageName,
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-              )
-            }
-
-            Checkbox(
-              checked = isChecked,
-              onCheckedChange = {
-                appRestrictedMap[item.packageName] = it
-                AppRestrictionManager.setPackageRestricted(context, item.packageName, it)
-              }
-            )
-          }
-        }
-      }
-
-      item {
-        Spacer(modifier = Modifier.height(24.dp))
-      }
+      Spacer(Modifier.height(30.dp))
     }
   }
 }

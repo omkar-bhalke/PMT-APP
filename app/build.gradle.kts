@@ -13,11 +13,14 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.finpulse.wkrxza"
+    applicationId = "com.aistudio.finpulse.wkrxza"  // keep: changing it makes Android treat this as a different app
     minSdk = 24
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
+
+    // cPanel API root (no secrets here). Railway's URL is fetched from GET /api/app-config at runtime.
+    buildConfigField("String", "CPANEL_BASE_URL", "\"https://radhewins.buzz/\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -47,12 +50,12 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
-      signingConfig = signingConfigs.getByName("release")
+      if (System.getenv("STORE_PASSWORD") != null) signingConfig = signingConfigs.getByName("release")
     }
     debug {
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
-      signingConfig = signingConfigs.getByName("debugConfig")
+      signingConfig = if (file("${rootDir}/debug.keystore").exists()) signingConfigs.getByName("debugConfig") else signingConfigs.getByName("debug")
     }
   }
   compileOptions {
@@ -105,6 +108,7 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)

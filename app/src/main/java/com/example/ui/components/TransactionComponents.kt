@@ -181,7 +181,7 @@ fun TransactionItemRow(
           )
           Spacer(modifier = Modifier.width(3.dp))
           Text(
-            text = if (transaction.syncStatus == SyncStatus.SYNCED) "Cloud" else "Offline",
+            text = if (transaction.syncStatus == SyncStatus.SYNCED) "Synced" else "Waiting to sync",
             fontSize = 10.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )

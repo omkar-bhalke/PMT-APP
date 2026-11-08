@@ -28,7 +28,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
-import androidx.compose.material3.AlertDialog
+import com.example.ui.components.GlassAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -322,7 +322,7 @@ fun TransactionListScreen(
 
   // Transaction Details / Action Dialog
   selectedTransactionForDetails?.let { tx ->
-    AlertDialog(
+    GlassAlertDialog(
       onDismissRequest = { selectedTransactionForDetails = null },
       title = {
         Row(
@@ -380,7 +380,7 @@ fun TransactionListScreen(
 
   // Delete Confirmation Dialog
   transactionToDelete?.let { tx ->
-    AlertDialog(
+    GlassAlertDialog(
       onDismissRequest = { transactionToDelete = null },
       title = { Text("Delete Transaction?") },
       text = {

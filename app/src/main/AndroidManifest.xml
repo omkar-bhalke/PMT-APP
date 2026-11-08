@@ -24,8 +24,30 @@
         </intent>
     </queries>
 
+    <queries>
+        <package android:name="com.google.android.apps.nbu.paisa.user" />
+        <package android:name="com.phonepe.app" />
+        <package android:name="net.one97.paytm" />
+        <package android:name="in.org.npci.upiapp" />
+        <package android:name="com.dreamplug.androidapp" />
+        <package android:name="in.amazon.mShop.android.shopping" />
+        <package android:name="com.whatsapp" />
+        <package android:name="com.sbi.lotusintouch" />
+        <package android:name="com.sbi.SBIFreedomPlus" />
+        <package android:name="com.snapwork.hdfc" />
+        <package android:name="com.csam.icici.bank.imobile" />
+        <package android:name="com.freecharge.android" />
+        <package android:name="com.mobikwik_new" />
+        <package android:name="com.axis.mobile" />
+        <package android:name="com.infrasofttech.centralbankofindia" />
+        <package android:name="com.msf.kbank.mobile" />
+        <package android:name="in.bajajfinservmarkets.app" />
+        <package android:name="com.bharatpe.app" />
+        <package android:name="com.sbi.upi" />
+    </queries>
+
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -39,21 +61,13 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.MyApplication"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- Task 5: App Restriction Screen launched when daily limit is exceeded -->
-        <activity
-            android:name=".ui.screens.restriction.AppRestrictionActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MyApplication"
-            android:launchMode="singleTask"
-            android:excludeFromRecents="true"
-            android:taskAffinity="" />
 
         <!-- Task 5: Accessibility Service for detecting restricted payment applications -->
         <service
@@ -68,13 +82,17 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <!-- Home Screen App Widget -->
+        <!-- Notification buttons (Snooze). Not exported: only this app can trigger it. -->
         <receiver
-            android:name=".widget.FinPulseWidgetProvider"
-            android:exported="true">
+            android:name=".util.NotificationActionReceiver"
+            android:exported="false" />
+
+        <!-- Home-screen widget -->
+        <receiver
+            android:name=".widget.BalanceWidgetProvider"
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.widget.ACTION_REFRESH_WIDGET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

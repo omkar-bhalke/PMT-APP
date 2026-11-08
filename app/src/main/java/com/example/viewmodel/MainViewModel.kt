@@ -3,7 +3,11 @@ package com.example.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.model.ChangePasswordRequest
 import com.example.data.model.DeviceResetRequest
+import com.example.data.model.ProfileDto
+import com.example.data.model.SetupRequest
+import com.example.data.model.UpdateProfileRequest
 import com.example.data.model.ForgotPasswordRequest
 import com.example.data.model.LoginRequest
 import com.example.data.model.RegisterRequest
@@ -35,6 +39,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
   private val _authError = MutableStateFlow<String?>(null)
   val authError: StateFlow<String?> = _authError.asStateFlow()
 
+  /** One-line message shown on the login screen (e.g. "signed out because the account was opened on another phone"). */
+  private val _notice = MutableStateFlow<String?>(null)
+  val notice: StateFlow<String?> = _notice.asStateFlow()
+  fun showNotice(message: String) { _notice.value = message }
+  fun clearNotice() { _notice.value = null }
+
   val deviceId: String by lazy {
     DeviceSecurityManager.getOrCreateDeviceId(application)
   }
@@ -60,13 +70,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     viewModelScope.launch {
       val syncedCount = repository.syncManager.syncPendingTransactions()
       if (syncedCount > 0) {
-        _syncMessage.value = "Synced $syncedCount pending records with cPanel cloud backend"
+        _syncMessage.value = "Synced $syncedCount pending records"
       }
       try {
         if (!userSettings.value.authToken.isNullOrBlank()) {
           val restored = repository.restoreFromCloud()
           if (restored > 0) {
-            _syncMessage.value = "Synchronized $restored records from cPanel database"
+            _syncMessage.value = "Your data is up to date"
           }
         }
       } catch (_: Exception) {}
@@ -123,6 +133,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
           NetworkClient.setAuthToken(body.token)
           NetworkClient.setRefreshToken(body.refreshToken)
           NetworkClient.setDeviceId(deviceId)
+          repository.preferenceManager.setOnboardingCompleted(false)
+          repository.preferenceManager.saveTrackingMode(null)
           onSuccess(body.isFirstTime)
         } else {
           val errJson = response.errorBody()?.string()
@@ -131,7 +143,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
           onError(msg)
         }
       } catch (e: Exception) {
-        val msg = "Network error: ${e.localizedMessage ?: "Unable to contact authentication server"}"
+        val msg = "Could not connect. Please check your internet and try again."
         _authError.value = msg
         onError(msg)
       }
@@ -174,12 +186,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
           NetworkClient.setAuthToken(body.token)
           NetworkClient.setRefreshToken(body.refreshToken)
           NetworkClient.setDeviceId(deviceId)
+          // The account decides whether first-time setup is needed: finished once = never asked again.
+          repository.preferenceManager.setOnboardingCompleted(body.setupCompleted)
+          repository.preferenceManager.saveTrackingMode(body.trackingMode)
 
           // Restore previously saved data from cPanel cloud database (Requirement 5)
           try {
             val restoredCount = repository.restoreFromCloud()
             if (restoredCount > 0) {
-              _syncMessage.value = "Restored $restoredCount records from cPanel database."
+              _syncMessage.value = "Your data was restored."
             }
           } catch (_: Exception) {}
 
@@ -191,7 +206,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
           onError(msg)
         }
       } catch (e: Exception) {
-        val msg = "Connection error: ${e.localizedMessage ?: "Failed to reach server"}"
+        val msg = "Could not connect. Please check your internet and try again."
         _authError.value = msg
         onError(msg)
       }
@@ -267,7 +282,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
           onSuccess()
         } else {
           val errJson = response.errorBody()?.string()
-          val msg = parseErrorMessage(errJson) ?: "Device reset unbinding failed."
+          val msg = parseErrorMessage(errJson) ?: "Could not complete this. Please try again."
           onError(msg)
         }
       } catch (e: Exception) {
@@ -291,14 +306,73 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
   }
 
-  fun completeOnboarding(initialBalance: Double, bankName: String, dailyLimit: Double) {
+  /** First-time choice: AUTO = balance comes from the bank statement (no balance asked); MANUAL = user types it. */
+  fun completeSetup(
+    mode: String, initialBalance: Double?, bankName: String, dailyLimit: Double?,
+    onDone: () -> Unit, onError: (String) -> Unit
+  ) {
     viewModelScope.launch {
-      repository.preferenceManager.saveInitialFinancialSetup(initialBalance, bankName, dailyLimit)
+      try {
+        val r = NetworkClient.apiService.completeSetup(SetupRequest(mode, initialBalance, bankName.ifBlank { null }, dailyLimit))
+        if (r.isSuccessful && r.body()?.success == true) {
+          repository.preferenceManager.saveSetupLocal(mode, initialBalance, bankName, dailyLimit)
+          onDone()
+        } else onError(parseErrorMessage(r.errorBody()?.string()) ?: "Could not save. Please try again.")
+      } catch (e: Exception) {
+        onError("Could not connect. Please check your internet and try again.")
+      }
+    }
+  }
+
+  /** Switch later from Settings. MANUAL needs the current balance. */
+  fun changeTrackingMode(mode: String, balance: Double?, onDone: () -> Unit, onError: (String) -> Unit) {
+    viewModelScope.launch {
+      try {
+        val r = NetworkClient.apiService.changeTrackingMode(SetupRequest(mode, balance))
+        if (r.isSuccessful && r.body()?.success == true) {
+          repository.preferenceManager.saveTrackingMode(mode)
+          if (mode == "MANUAL" && balance != null) repository.preferenceManager.saveSetupLocal(mode, balance, "", null)
+          onDone()
+        } else onError(parseErrorMessage(r.errorBody()?.string()) ?: "Could not change. Please try again.")
+      } catch (e: Exception) { onError("Could not connect. Please check your internet and try again.") }
+    }
+  }
+
+  fun loadProfile(onResult: (ProfileDto?) -> Unit) {
+    viewModelScope.launch {
+      try {
+        val r = NetworkClient.apiService.getProfile()
+        onResult(if (r.isSuccessful) r.body()?.profile else null)
+      } catch (_: Exception) { onResult(null) }
+    }
+  }
+
+  fun saveProfile(name: String, phone: String, onDone: (String?) -> Unit) {
+    viewModelScope.launch {
+      try {
+        val r = NetworkClient.apiService.updateProfile(UpdateProfileRequest(name.trim(), phone.trim()))
+        if (r.isSuccessful && r.body()?.success == true) {
+          val s = userSettings.value
+          repository.preferenceManager.saveAuthProfile(s.userId, s.userEmail, name.trim(), s.userPhotoUrl, s.authToken, s.refreshToken, s.deviceId.ifBlank { null })
+          onDone(null)
+        } else onDone(parseErrorMessage(r.errorBody()?.string()) ?: "Could not save.")
+      } catch (_: Exception) { onDone("Could not connect. Please try again.") }
+    }
+  }
+
+  fun changePassword(current: String, new: String, onDone: (String?) -> Unit) {
+    viewModelScope.launch {
+      try {
+        val r = NetworkClient.apiService.changePassword(ChangePasswordRequest(current, new))
+        if (r.isSuccessful && r.body()?.success == true) onDone(null)
+        else onDone(parseErrorMessage(r.errorBody()?.string()) ?: "Could not change the password.")
+      } catch (_: Exception) { onDone("Could not connect. Please try again.") }
     }
   }
 
   fun logout() {
     viewModelScope.launch {
+      try { NetworkClient.apiService.signOutOnServer() } catch (_: Exception) {}
       repository.preferenceManager.clearUserSession()
       NetworkClient.setAuthToken(null)
       NetworkClient.setRefreshToken(null)

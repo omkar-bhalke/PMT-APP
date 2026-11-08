@@ -125,16 +125,30 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
   }
 
+  private val _aiProviders = MutableStateFlow<List<com.example.data.model.AiProviderDto>>(emptyList())
+  val aiProviders: StateFlow<List<com.example.data.model.AiProviderDto>> = _aiProviders.asStateFlow()
+
+  fun loadAiProviders() {
+    viewModelScope.launch {
+      try {
+        val r = NetworkClient.apiService.getAiProviders()
+        if (r.isSuccessful) _aiProviders.value = r.body()?.providers ?: emptyList()
+      } catch (_: Exception) {}
+    }
+  }
+
   fun validateAndSaveAiConfig(
     provider: String,
     apiKey: String,
     onSuccess: (String) -> Unit,
-    onError: (String) -> Unit
+    onError: (String) -> Unit,
+    model: String? = null,
+    baseUrl: String? = null
   ) {
     viewModelScope.launch {
       try {
         val response = NetworkClient.apiService.validateAndSaveAiConfig(
-          ValidateAiKeyRequest(provider = provider, apiKey = apiKey.trim())
+          ValidateAiKeyRequest(provider = provider, apiKey = apiKey.trim(), model = model?.trim()?.ifBlank { null }, baseUrl = baseUrl?.trim()?.ifBlank { null })
         )
         if (response.isSuccessful && response.body()?.success == true) {
           _aiConfig.value = response.body()?.config
@@ -147,7 +161,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
           onError(msg)
         }
       } catch (e: Exception) {
-        onError("Network error: ${e.localizedMessage ?: "Failed to connect to backend"}")
+        onError("Could not connect. Please check your internet and try again.")
       }
     }
   }

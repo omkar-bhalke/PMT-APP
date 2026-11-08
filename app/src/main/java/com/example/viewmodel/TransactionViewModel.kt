@@ -104,16 +104,8 @@ class TransactionViewModel(application: Application) : AndroidViewModel(applicat
 
     // Sort
     result = when (sort) {
-      SortOption.DATE_DESC -> result.sortedWith(
-        compareByDescending<TransactionEntity> { it.createdAt }
-          .thenByDescending { it.dateMillis }
-          .thenByDescending { it.timeString }
-      )
-      SortOption.DATE_ASC -> result.sortedWith(
-        compareBy<TransactionEntity> { it.dateMillis }
-          .thenBy { it.createdAt }
-          .thenBy { it.timeString }
-      )
+      SortOption.DATE_DESC -> result.sortedWith(compareByDescending<TransactionEntity> { it.dateMillis }.thenByDescending { it.timeString })
+      SortOption.DATE_ASC -> result.sortedWith(compareBy<TransactionEntity> { it.dateMillis }.thenBy { it.timeString })
       SortOption.AMOUNT_DESC -> result.sortedByDescending { it.amount }
       SortOption.AMOUNT_ASC -> result.sortedBy { it.amount }
     }

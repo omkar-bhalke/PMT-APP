@@ -28,6 +28,10 @@ object NetworkClient {
     cachedDeviceId = deviceId
   }
 
+  fun currentToken(): String? = cachedToken
+  fun currentDeviceId(): String? = cachedDeviceId
+  fun currentRefreshToken(): String? = cachedRefreshToken
+
   fun setBaseUrl(url: String) {
     val formatted = if (url.endsWith("/")) url else "$url/"
     if (formatted != currentBaseUrl) {
@@ -52,12 +56,26 @@ object NetworkClient {
     chain.proceed(builder.build())
   }
 
+  /** Detects "signed in on another phone" / "account disabled" and tells the whole app once. */
+  private val sessionInterceptor = Interceptor { chain ->
+    val response = chain.proceed(chain.request())
+    if ((response.code == 401 || response.code == 403) && !chain.request().url.encodedPath.contains("auth/login")) {
+      val snippet = try { response.peekBody(4096).string() } catch (_: Exception) { "" }
+      when {
+        snippet.contains("SESSION_REPLACED") -> SessionEvents.emit("You were signed out because your account was opened on another phone.")
+        snippet.contains("ACCOUNT_BLOCKED") -> SessionEvents.emit("This account has been disabled. Please contact support.")
+      }
+    }
+    response
+  }
+
   private val loggingInterceptor = HttpLoggingInterceptor().apply {
-    level = HttpLoggingInterceptor.Level.BODY
+    level = if (com.example.BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
   }
 
   private val okHttpClient = OkHttpClient.Builder()
     .addInterceptor(authInterceptor)
+    .addInterceptor(sessionInterceptor)
     .addInterceptor(loggingInterceptor)
     .connectTimeout(15, TimeUnit.SECONDS)
     .readTimeout(15, TimeUnit.SECONDS)

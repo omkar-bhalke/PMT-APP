@@ -34,6 +34,8 @@ data class AuthResponse(
   val token: String? = null,
   val refreshToken: String? = null,
   val isFirstTime: Boolean = false,
+  val setupCompleted: Boolean = false,
+  val trackingMode: String? = null,
   val message: String? = null,
   val code: String? = null,
   val user: UserDto? = null
@@ -178,8 +180,10 @@ data class MonthlyData(
 
 @JsonClass(generateAdapter = true)
 data class ValidateAiKeyRequest(
-  val provider: String, // GEMINI, OPENAI
-  val apiKey: String
+  val provider: String,
+  val apiKey: String,
+  val model: String? = null,
+  val baseUrl: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -192,6 +196,8 @@ data class AiConfigResponse(
 @JsonClass(generateAdapter = true)
 data class AiConfigDto(
   val provider: String = "GEMINI",
+  val model: String? = null,
+  val baseUrl: String? = null,
   val isConfigured: Boolean = false,
   val keyStatus: String = "UNCHECKED",
   val lastValidatedAt: String? = null
@@ -207,6 +213,8 @@ data class AiAnalysisResponse(
   val success: Boolean,
   val provider: String? = null,
   val analysis: String,
+  val source: String? = null,
+  val aiError: String? = null,
   val requiresConfiguration: Boolean = false,
   val message: String? = null
 )
@@ -329,77 +337,132 @@ data class CloudSettingsDto(
 )
 
 @JsonClass(generateAdapter = true)
+data class CloudWhatsAppDto(
+  val connected: Boolean = false,
+  val phoneNumber: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class CloudAccountDto(
   val initialBalance: Double = 0.0,
   val currentBalance: Double = 0.0,
   val bankName: String = "State Bank of India (SBI)"
 )
 
-@JsonClass(generateAdapter = true)
-data class CloudWhatsAppDto(
-  val connected: Boolean = false,
-  val phoneNumber: String? = null,
-  val status: String? = "NOT_CONNECTED"
-)
-
 // ==========================================
-// SBI AUTOMATION & PENDING TRANSACTIONS (EXPENSE TRACKER UPGRADE)
+// SBI AUTOMATION, PENDING QUEUE, BALANCE  (cPanel + Railway)
+// No fake defaults: values the server did not send stay null.
 // ==========================================
 
 @JsonClass(generateAdapter = true)
 data class PendingTransactionDto(
   val id: String,
   val source: String = "SBI_WHATSAPP_STATEMENT",
-  val accountNumber: String = "xxx188",
+  val accountNumber: String? = null,
   val transactionDate: String,
   val amount: Double,
   val type: String, // DEBIT or CREDIT
-  val description: String,
-  val suggestedCategory: String = "Bank Transfer",
-  val idempotencyHash: String,
+  val description: String = "",
+  val suggestedCategory: String? = null,
   val status: String = "PENDING",
+  val snoozedUntil: String? = null,
+  val isSnoozed: Boolean = false,
   val createdAt: String? = null
-)
+) {
+  val isCredit: Boolean get() = type.equals("CREDIT", ignoreCase = true)
+}
 
 @JsonClass(generateAdapter = true)
 data class PendingTransactionsResponse(
   val success: Boolean,
   val count: Int = 0,
   val items: List<PendingTransactionDto> = emptyList(),
+  val serverTime: String? = null,
   val message: String? = null
 )
 
 @JsonClass(generateAdapter = true)
-data class ConfirmPendingTransactionRequest(
+data class PendingOneResponse(val success: Boolean, val item: PendingTransactionDto? = null, val message: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class ConfirmationDto(
   val pendingTransactionId: String,
   val categoryName: String,
-  val notes: String? = null
+  val purpose: String
 )
 
 @JsonClass(generateAdapter = true)
-data class DismissPendingTransactionRequest(
-  val pendingTransactionId: String
+data class PendingSyncRequest(val confirmations: List<ConfirmationDto> = emptyList())
+
+@JsonClass(generateAdapter = true)
+data class SyncResultDto(
+  val pendingTransactionId: String,
+  val status: String, // CONFIRMED | ALREADY_CONFIRMED | NOT_FOUND | INVALID | ERROR
+  val transactionId: String? = null,
+  val message: String? = null
 )
+
+@JsonClass(generateAdapter = true)
+data class PendingSyncResponse(
+  val success: Boolean,
+  val results: List<SyncResultDto> = emptyList(),
+  val count: Int = 0,
+  val items: List<PendingTransactionDto> = emptyList(),
+  val balance: Double? = null,
+  val balanceDifference: Double? = null,
+  val serverTime: String? = null,
+  val message: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class SnoozeRequest(val pendingTransactionId: String, val minutes: Int)
+
+@JsonClass(generateAdapter = true)
+data class SnoozeResponse(val success: Boolean, val updated: Boolean = false, val message: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class CategoryDto2(
+  val id: String,
+  val name: String,
+  val type: String, // INCOME | EXPENSE
+  val iconName: String? = null,
+  val colorHex: String? = null,
+  val isDefault: Boolean = false
+)
+
+@JsonClass(generateAdapter = true)
+data class CategoriesResponse(val success: Boolean, val categories: List<CategoryDto2> = emptyList())
+
+@JsonClass(generateAdapter = true)
+data class AddCategoryRequest(val name: String, val type: String)
+
+@JsonClass(generateAdapter = true)
+data class AddCategoryResponse(val success: Boolean, val category: CategoryDto2? = null, val message: String? = null)
 
 @JsonClass(generateAdapter = true)
 data class RealBalanceResponse(
-  val success: Boolean,
-  val currentBalance: Double = 0.0,
-  val openingBalance: Double = 0.0,
-  val accountNumber: String? = "xxx188",
-  val bankName: String? = "State Bank of India (SBI)",
-  val lastStatementDate: String? = null,
-  val lastStatementSync: String? = null,
-  val rawStatementText: String? = null
+  val success: Boolean = true, // nested "balance" inside /overview has no "success" key
+  val hasData: Boolean = false,
+  val currentBalance: Double? = null,
+  val previousBalance: Double? = null,
+  val balanceDifference: Double? = null,
+  val accountNumber: String? = null,
+  val bankName: String? = null,
+  val lastStatementAt: String? = null,
+  val lastSyncedAt: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class BalanceHistoryItem(
   val id: String,
-  val accountNumber: String = "xxx188",
+  val accountNumber: String? = null,
   val balance: Double,
-  val rawStatementDate: String? = null,
-  val source: String = "SBI_WHATSAPP",
+  val previousBalance: Double? = null,
+  val balanceDifference: Double? = null,
+  val newEntries: Int = 0,
+  val discrepancy: Double? = null,
+  val isBaseline: Boolean = false,
+  val statementAt: String? = null,
   val createdAt: String
 )
 
@@ -411,65 +474,168 @@ data class BalanceHistoryResponse(
 )
 
 @JsonClass(generateAdapter = true)
-data class AutomationConfigDto(
-  val sbiTargetPhone: String = "919022690226",
+data class AutomationDto(
+  val isEnabled: Boolean = false,
   val intervalMinutes: Int = 30,
-  val isEnabled: Boolean = true,
-  val railwayApiUrl: String? = null,
+  val importInitialEntries: Boolean = false,
+  val targetNumber: String? = null,
+  val nextRunAt: String? = null,
   val lastRunAt: String? = null,
-  val lastStatus: String? = "IDLE"
+  val lastSuccessAt: String? = null,
+  val lastStatus: String = "IDLE",
+  val lastError: String? = null,
+  val retryCount: Int = 0,
+  val isRunning: Boolean = false,
+  val minIntervalMinutes: Int = 5,
+  val maxIntervalMinutes: Int = 1440
 )
 
 @JsonClass(generateAdapter = true)
-data class AutomationConfigResponse(
+data class WhatsAppMetaDto(
+  val status: String = "DISCONNECTED",
+  val phoneMasked: String? = null,
+  val linkedAt: String? = null,
+  val lastConnectedAt: String? = null,
+  val lastError: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class OverviewResponse(
   val success: Boolean,
-  val sbiTargetPhone: String = "919022690226",
-  val intervalMinutes: Int = 30,
-  val isEnabled: Boolean = true,
-  val railwayApiUrl: String? = null,
-  val lastRunAt: String? = null,
-  val lastStatus: String? = "IDLE",
+  val automation: AutomationDto = AutomationDto(),
+  val whatsapp: WhatsAppMetaDto = WhatsAppMetaDto(),
+  val balance: RealBalanceResponse = RealBalanceResponse(success = true),
+  val pendingCount: Int = 0,
+  val serverTime: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AppConfigResponse(
+  val success: Boolean,
+  val railwayBaseUrl: String? = null,
+  val sbiTargetNumber: String? = null,
+  val minIntervalMinutes: Int = 5,
+  val maxIntervalMinutes: Int = 1440,
+  val whatsappClientNotice: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AutomationLogDto(
+  val id: String,
+  val eventType: String,
+  val message: String,
+  val details: String? = null,
+  val createdAt: String
+)
+
+@JsonClass(generateAdapter = true)
+data class AutomationLogsResponse(val success: Boolean, val count: Int = 0, val logs: List<AutomationLogDto> = emptyList())
+
+// ---------- Railway worker ----------
+
+@JsonClass(generateAdapter = true)
+data class RwWhatsAppDto(
+  val state: String = "DISCONNECTED", // DISCONNECTED | CONNECTING | QR_READY | PAIRING_CODE_READY | CONNECTED | RECONNECTING
+  val connected: Boolean = false,
+  val hasSession: Boolean = false,
+  val qrDataUrl: String? = null,
+  val pairingCode: String? = null,
+  val phoneMasked: String? = null,
+  val lastError: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class RwStatusResponse(
+  val success: Boolean = true,
+  val storagePersistent: Boolean = true,
+  val whatsapp: RwWhatsAppDto = RwWhatsAppDto(),
+  val unofficialNotice: String? = null,
   val message: String? = null
 )
 
 @JsonClass(generateAdapter = true)
-data class UpdateAutomationConfigRequest(
-  val sbiTargetPhone: String = "919022690226",
-  val intervalMinutes: Int = 30,
-  val isEnabled: Boolean = true,
-  val railwayApiUrl: String? = null
-)
+data class RwPairRequest(val phone: String)
 
 @JsonClass(generateAdapter = true)
-data class RailwayPairRequest(
-  val phoneNumber: String
-)
+data class RwPairResponse(val success: Boolean, val pairingCode: String? = null, val message: String? = null, val code: String? = null)
 
 @JsonClass(generateAdapter = true)
-data class RailwayPairResponse(
+data class RwStartRequest(val intervalMinutes: Int? = null, val importInitialEntries: Boolean? = null)
+
+@JsonClass(generateAdapter = true)
+data class RwIntervalRequest(val intervalMinutes: Int)
+
+@JsonClass(generateAdapter = true)
+data class RwSettingsRequest(val importInitialEntries: Boolean)
+
+@JsonClass(generateAdapter = true)
+data class RwAutomationResponse(
   val success: Boolean,
-  val pairingCode: String? = null,
-  val error: String? = null
+  val automation: AutomationDto? = null,
+  val message: String? = null,
+  val code: String? = null
 )
 
 @JsonClass(generateAdapter = true)
-data class RailwayAutomationStatusDto(
-  val enabled: Boolean = true,
-  val intervalMinutes: Int = 30,
-  val lastRunTime: String? = null,
-  val lastStatus: String? = "IDLE",
-  val lastBalance: Double? = null,
-  val lastAccountNumber: String? = null,
-  val totalRuns: Int = 0,
-  val targetSbiNumber: String? = "919022690226"
+data class RwAutomationStatusResponse(
+  val success: Boolean,
+  val automation: AutomationDto? = null,
+  val whatsapp: RwWhatsAppDto = RwWhatsAppDto(),
+  val runningNow: Boolean = false,
+  val queuedForRetry: Int = 0,
+  val serverTime: String? = null,
+  val message: String? = null
 )
 
 @JsonClass(generateAdapter = true)
-data class RailwayStatusResponse(
-  val connected: Boolean = false,
-  val status: String = "DISCONNECTED",
-  val qrDataUrl: String? = null,
-  val uptimeSeconds: Long? = 0L,
-  val automation: RailwayAutomationStatusDto? = null
+data class RwGenericResponse(
+  val success: Boolean,
+  val message: String? = null,
+  val code: String? = null,
+  val retryAfterSeconds: Int? = null
 )
 
+
+// ---------- profile, first-time setup, AI providers ----------
+
+@JsonClass(generateAdapter = true)
+data class ProfileDto(
+  val id: String = "",
+  val name: String = "",
+  val email: String = "",
+  val phone: String? = null,
+  val profileImage: String? = null,
+  val memberSince: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ProfileResponse(val success: Boolean, val profile: ProfileDto? = null, val message: String? = null, val code: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class UpdateProfileRequest(val name: String? = null, val phone: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class ChangePasswordRequest(val currentPassword: String, val newPassword: String)
+
+@JsonClass(generateAdapter = true)
+data class SetupRequest(
+  val trackingMode: String, // AUTO or MANUAL
+  val initialBalance: Double? = null,
+  val bankName: String? = null,
+  val dailyLimit: Double? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class SetupResponse(val success: Boolean, val trackingMode: String? = null, val setupCompleted: Boolean = false, val message: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class AiProviderDto(val id: String, val label: String, val needsBaseUrl: Boolean = false)
+
+@JsonClass(generateAdapter = true)
+data class AiProvidersResponse(val success: Boolean, val providers: List<AiProviderDto> = emptyList())
+
+@JsonClass(generateAdapter = true)
+data class SuggestCategoryRequest(val description: String, val type: String, val amount: Double, val categories: List<String>)
+
+@JsonClass(generateAdapter = true)
+data class SuggestCategoryResponse(val success: Boolean, val category: String? = null)

@@ -16,7 +16,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Pin
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
+import com.example.ui.components.GlassAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,7 +62,7 @@ fun ForgotPasswordDialog(
   var errorMessage by remember { mutableStateOf<String?>(null) }
   var statusNotice by remember { mutableStateOf<String?>(null) }
 
-  AlertDialog(
+  GlassAlertDialog(
     onDismissRequest = onDismiss,
     shape = RoundedCornerShape(20.dp),
     title = {

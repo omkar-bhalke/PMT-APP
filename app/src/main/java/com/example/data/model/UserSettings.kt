@@ -11,10 +11,11 @@ data class UserSettings(
   val dailySpendingLimit: Double = 500.0,
   val selectedBank: String = "State Bank of India (SBI)",
   val onboardingCompleted: Boolean = false,
+  val trackingMode: String = "", // AUTO (from bank statement), MANUAL, or empty until chosen
   val themeMode: String = "SYSTEM", // LIGHT, DARK, SYSTEM
   val aiProvider: String = "GEMINI", // GEMINI, OPENAI
   val isAiConfigured: Boolean = false,
-  val backendUrl: String = "https://finpulse-api.railway.app",
+  val backendUrl: String = "https://radhewins.buzz",
   val authToken: String? = null,
   val refreshToken: String? = null,
   val deviceId: String = "",

@@ -1,6 +1,5 @@
 package com.example.ui.screens.auth
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -11,41 +10,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PhonelinkLock
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,23 +37,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.AccentGold
-import com.example.ui.theme.ExpenseRed
-import com.example.ui.theme.IncomeGreen
-import com.example.ui.theme.NavyDark
-import com.example.ui.theme.NavySurface
-import com.example.ui.theme.PrimaryBlue
+import com.example.ui.components.Glass
+import com.example.ui.components.GlassBackground
+import com.example.ui.components.GlassButton
+import com.example.ui.components.GlassCard
+import com.example.ui.components.GlassIconBadge
+import com.example.ui.components.GlassMessage
+import com.example.ui.components.GlassTextField
 import com.example.viewmodel.MainViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
   viewModel: MainViewModel,
@@ -79,7 +57,6 @@ fun RegisterScreen(
   onNavigateToLogin: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val context = LocalContext.current
   BackHandler { onNavigateToLogin() }
 
   var fullName by remember { mutableStateOf("") }
@@ -87,301 +64,67 @@ fun RegisterScreen(
   var password by remember { mutableStateOf("") }
   var confirmPassword by remember { mutableStateOf("") }
   var passwordVisible by remember { mutableStateOf(false) }
-  var confirmPasswordVisible by remember { mutableStateOf(false) }
-
   var isLoading by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
 
-  // Password strength calculation
-  val hasMinLength = password.length >= 8
-  val hasUppercase = password.any { it.isUpperCase() }
-  val hasDigit = password.any { it.isDigit() }
-  val hasSpecial = password.any { !it.isLetterOrDigit() }
-  val strengthScore = listOf(hasMinLength, hasUppercase, hasDigit, hasSpecial).count { it }
+  // strength: length, upper-case, digit, symbol
+  val score = listOf(password.length >= 8, password.any { it.isUpperCase() }, password.any { it.isDigit() }, password.any { !it.isLetterOrDigit() }).count { it }
+  val strengthColor = when (score) { 0, 1 -> Glass.Rose; 2 -> Glass.Amber; else -> Glass.Mint }
 
-  val strengthColor = when (strengthScore) {
-    0, 1 -> ExpenseRed
-    2, 3 -> Color(0xFFF59E0B) // Amber
-    else -> IncomeGreen
-  }
-  val strengthLabel = when (strengthScore) {
-    0, 1 -> "Weak"
-    2, 3 -> "Moderate"
-    else -> "Strong"
-  }
-
-  Scaffold(
-    topBar = {
-      TopAppBar(
-        title = { Text("Create FinPulse Account", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
-        navigationIcon = {
-          IconButton(onClick = onNavigateToLogin) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Login", tint = Color.White)
-          }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-          containerColor = NavyDark,
-          titleContentColor = Color.White
-        )
-      )
-    },
-    containerColor = NavyDark
-  ) { innerPadding ->
+  GlassBackground(modifier) {
     Column(
-      modifier = modifier
-        .fillMaxSize()
-        .padding(innerPadding)
-        .padding(horizontal = 24.dp)
-        .verticalScroll(rememberScrollState()),
-      verticalArrangement = Arrangement.spacedBy(14.dp)
+      Modifier.fillMaxSize().statusBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
     ) {
-      Spacer(modifier = Modifier.height(4.dp))
+      Spacer(Modifier.height(28.dp))
+      GlassIconBadge(Icons.Default.TrendingUp, Glass.Violet, size = 64.dp)
+      Spacer(Modifier.height(12.dp))
+      Text("Create your account", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Glass.TextHi)
+      Text("It takes less than a minute.", fontSize = 13.sp, color = Glass.TextLo)
+      Spacer(Modifier.height(22.dp))
 
-      Text(
-        text = "Register to start managing your daily expenses and savings",
-        fontSize = 13.sp,
-        color = Color(0xFF94A3B8)
-      )
-
-      if (errorMessage != null) {
-        Card(
-          shape = RoundedCornerShape(12.dp),
-          colors = CardDefaults.cardColors(containerColor = ExpenseRed.copy(alpha = 0.15f)),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Text(
-            text = errorMessage!!,
-            color = ExpenseRed,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(12.dp)
-          )
+      GlassCard(Modifier.fillMaxWidth(), corner = 30.dp, contentPadding = 22.dp) {
+        errorMessage?.let { GlassMessage(it); Spacer(Modifier.height(12.dp)) }
+        GlassTextField(fullName, { fullName = it; errorMessage = null }, "Full name", leading = Icons.Default.Person)
+        Spacer(Modifier.height(12.dp))
+        GlassTextField(email, { email = it; errorMessage = null }, "Email", leading = Icons.Default.Email, keyboardType = KeyboardType.Email)
+        Spacer(Modifier.height(12.dp))
+        GlassTextField(
+          password, { password = it; errorMessage = null }, "Password", leading = Icons.Default.Lock, password = true, passwordVisible = passwordVisible,
+          trailing = { IconButton(onClick = { passwordVisible = !passwordVisible }) { Icon(if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, "Show password", tint = Glass.TextLo) } }
+        )
+        if (password.isNotEmpty()) {
+          Spacer(Modifier.height(8.dp))
+          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (i in 1..4) Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(if (i <= score) strengthColor else Color.White.copy(alpha = 0.15f)))
+          }
+          Text("Use 8+ characters with a capital letter, a number and a symbol.", fontSize = 11.sp, color = Glass.TextLo, modifier = Modifier.padding(top = 4.dp))
         }
-      }
-
-      // 1. Full Name
-      OutlinedTextField(
-        value = fullName,
-        onValueChange = {
-          fullName = it
-          errorMessage = null
-        },
-        label = { Text("Full Name", color = Color(0xFF94A3B8)) },
-        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = AccentGold) },
-        singleLine = true,
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedTextColor = Color.White,
-          unfocusedTextColor = Color.White,
-          focusedBorderColor = AccentGold,
-          unfocusedBorderColor = Color(0xFF334155)
-        ),
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("register_fullname_input")
-      )
-
-      // 2. Email Address
-      OutlinedTextField(
-        value = email,
-        onValueChange = {
-          email = it
-          errorMessage = null
-        },
-        label = { Text("Email Address (Gmail or personal)", color = Color(0xFF94A3B8)) },
-        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = AccentGold) },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedTextColor = Color.White,
-          unfocusedTextColor = Color.White,
-          focusedBorderColor = AccentGold,
-          unfocusedBorderColor = Color(0xFF334155)
-        ),
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("register_email_input")
-      )
-
-      // 3. Password
-      OutlinedTextField(
-        value = password,
-        onValueChange = {
-          password = it
-          errorMessage = null
-        },
-        label = { Text("Password", color = Color(0xFF94A3B8)) },
-        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AccentGold) },
-        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = {
-          IconButton(onClick = { passwordVisible = !passwordVisible }) {
-            Icon(
-              imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-              contentDescription = null,
-              tint = Color(0xFF94A3B8)
-            )
-          }
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedTextColor = Color.White,
-          unfocusedTextColor = Color.White,
-          focusedBorderColor = AccentGold,
-          unfocusedBorderColor = Color(0xFF334155)
-        ),
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("register_password_input")
-      )
-
-      // Password Strength Indicator
-      if (password.isNotEmpty()) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Text("Strength: $strengthLabel", color = strengthColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text("${strengthScore * 25}%", color = strengthColor, fontSize = 11.sp)
-          }
-          LinearProgressIndicator(
-            progress = { strengthScore / 4f },
-            color = strengthColor,
-            trackColor = Color(0xFF334155),
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(4.dp)
-              .clip(RoundedCornerShape(2.dp))
-          )
-          Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StrengthCheckItem("8+ chars", hasMinLength)
-            StrengthCheckItem("Uppercase", hasUppercase)
-            StrengthCheckItem("Number", hasDigit)
-            StrengthCheckItem("Symbol", hasSpecial)
-          }
-        }
-      }
-
-      // 4. Confirm Password
-      OutlinedTextField(
-        value = confirmPassword,
-        onValueChange = {
-          confirmPassword = it
-          errorMessage = null
-        },
-        label = { Text("Confirm Password", color = Color(0xFF94A3B8)) },
-        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AccentGold) },
-        visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = {
-          IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-            Icon(
-              imageVector = if (confirmPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-              contentDescription = null,
-              tint = Color(0xFF94A3B8)
-            )
-          }
-        },
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedTextColor = Color.White,
-          unfocusedTextColor = Color.White,
-          focusedBorderColor = AccentGold,
-          unfocusedBorderColor = Color(0xFF334155)
-        ),
-        modifier = Modifier
-          .fillMaxWidth()
-          .testTag("register_confirm_password_input")
-      )
-
-      Spacer(modifier = Modifier.height(10.dp))
-
-      // Register Button
-      if (isLoading) {
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-          CircularProgressIndicator(color = AccentGold)
-        }
-      } else {
-        Button(
+        Spacer(Modifier.height(12.dp))
+        GlassTextField(confirmPassword, { confirmPassword = it; errorMessage = null }, "Confirm password", leading = Icons.Default.Lock, password = true, passwordVisible = passwordVisible)
+        Spacer(Modifier.height(18.dp))
+        GlassButton(
+          text = "Create account", loading = isLoading, modifier = Modifier.fillMaxWidth(),
           onClick = {
-            if (fullName.trim().length < 2) {
-              errorMessage = "Please enter your full name."
-              return@Button
-            }
-            if (email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
-              errorMessage = "Please enter a valid email address."
-              return@Button
-            }
-            if (password.length < 8) {
-              errorMessage = "Password must be at least 8 characters long."
-              return@Button
-            }
-            if (password != confirmPassword) {
-              errorMessage = "Passwords do not match."
-              return@Button
-            }
-
-            isLoading = true
-            errorMessage = null
+            if (fullName.trim().length < 2) { errorMessage = "Please enter your full name."; return@GlassButton }
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) { errorMessage = "Please enter a valid email address."; return@GlassButton }
+            if (password.length < 8) { errorMessage = "Password must be at least 8 characters long."; return@GlassButton }
+            if (password != confirmPassword) { errorMessage = "Passwords do not match."; return@GlassButton }
+            isLoading = true; errorMessage = null
             viewModel.register(
-              name = fullName.trim(),
-              email = email.trim(),
-              pass = password,
-              confirmPass = confirmPassword,
-              onSuccess = { isFirstTime ->
-                isLoading = false
-                Toast.makeText(context, "Registration successful!", Toast.LENGTH_SHORT).show()
-                onRegisterSuccess(isFirstTime)
-              },
-              onError = { err ->
-                isLoading = false
-                errorMessage = err
-              }
+              name = fullName.trim(), email = email.trim(), pass = password, confirmPass = confirmPassword,
+              onSuccess = { isFirstTime -> isLoading = false; onRegisterSuccess(isFirstTime) },
+              onError = { err -> isLoading = false; errorMessage = err }
             )
-          },
-          modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .testTag("register_submit_button"),
-          shape = RoundedCornerShape(16.dp),
-          colors = ButtonDefaults.buttonColors(containerColor = AccentGold, contentColor = Color(0xFF0F172A))
-        ) {
-          Text("Register Account & Bind Device", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        }
+          }
+        )
       }
 
-      // Back to Login link
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        Text("Already registered?", color = Color(0xFF94A3B8), fontSize = 13.sp)
-        TextButton(onClick = onNavigateToLogin) {
-          Text("Log In Here", color = AccentGold, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        }
+      Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        Text("Already have an account?", color = Glass.TextLo, fontSize = 14.sp)
+        TextButton(onClick = onNavigateToLogin) { Text("Sign in", color = Glass.Sky, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
       }
-
-      Spacer(modifier = Modifier.height(24.dp))
+      Spacer(Modifier.height(24.dp))
     }
-  }
-}
-
-@Composable
-private fun StrengthCheckItem(label: String, passed: Boolean) {
-  Row(verticalAlignment = Alignment.CenterVertically) {
-    Icon(
-      imageVector = if (passed) Icons.Default.Check else Icons.Default.Close,
-      contentDescription = null,
-      tint = if (passed) IncomeGreen else Color(0xFF64748B),
-      modifier = Modifier.size(12.dp)
-    )
-    Spacer(modifier = Modifier.width(2.dp))
-    Text(
-      text = label,
-      fontSize = 10.sp,
-      color = if (passed) IncomeGreen else Color(0xFF94A3B8)
-    )
   }
 }

@@ -30,6 +30,7 @@ class PreferenceManager(private val context: Context) {
     private val KEY_CURRENCY_SYMBOL = stringPreferencesKey("currency_symbol")
 
     private val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+    private val KEY_TRACKING_MODE = stringPreferencesKey("tracking_mode")
     private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
     private val KEY_AI_PROVIDER = stringPreferencesKey("ai_provider")
     private val KEY_IS_AI_CONFIGURED = booleanPreferencesKey("is_ai_configured")
@@ -52,6 +53,7 @@ class PreferenceManager(private val context: Context) {
       dailySpendingLimit = prefs[KEY_DAILY_LIMIT] ?: 500.0,
       selectedBank = prefs[KEY_SELECTED_BANK] ?: "State Bank of India (SBI)",
       onboardingCompleted = prefs[KEY_ONBOARDING_COMPLETED] ?: false,
+      trackingMode = prefs[KEY_TRACKING_MODE] ?: "",
       themeMode = prefs[KEY_THEME_MODE] ?: "SYSTEM",
       aiProvider = prefs[KEY_AI_PROVIDER] ?: "GEMINI",
       isAiConfigured = prefs[KEY_IS_AI_CONFIGURED] ?: false,
@@ -85,6 +87,21 @@ class PreferenceManager(private val context: Context) {
     }
   }
 
+  suspend fun saveTrackingMode(mode: String?) {
+    context.dataStore.edit { prefs -> if (mode.isNullOrBlank()) prefs.remove(KEY_TRACKING_MODE) else prefs[KEY_TRACKING_MODE] = mode }
+  }
+
+  /** First-run choice saved on the phone (the same choice is saved on the account so it is never asked again). */
+  suspend fun saveSetupLocal(mode: String, initialBalance: Double?, bankName: String, dailyLimit: Double?) {
+    context.dataStore.edit { prefs ->
+      prefs[KEY_TRACKING_MODE] = mode
+      if (initialBalance != null) prefs[KEY_INITIAL_BALANCE] = initialBalance
+      if (bankName.isNotBlank()) prefs[KEY_SELECTED_BANK] = bankName
+      if (dailyLimit != null && dailyLimit > 0) prefs[KEY_DAILY_LIMIT] = dailyLimit
+      prefs[KEY_ONBOARDING_COMPLETED] = true
+    }
+  }
+
   suspend fun saveInitialFinancialSetup(initialBalance: Double, bankName: String, dailyLimit: Double) {
     context.dataStore.edit { prefs ->
       prefs[KEY_INITIAL_BALANCE] = initialBalance
@@ -104,7 +121,7 @@ class PreferenceManager(private val context: Context) {
       prefs[KEY_DAILY_LIMIT] = dailyLimit
       prefs[KEY_INITIAL_BALANCE] = initialBalance
       prefs[KEY_SELECTED_BANK] = bankName
-      prefs[KEY_ONBOARDING_COMPLETED] = onboardingDone
+      prefs[KEY_ONBOARDING_COMPLETED] = onboardingDone || (prefs[KEY_ONBOARDING_COMPLETED] ?: false)
     }
   }
 
@@ -177,7 +194,7 @@ class PreferenceManager(private val context: Context) {
       prefs.remove(KEY_USER_PHOTO)
       prefs.remove(KEY_AUTH_TOKEN)
       prefs.remove(KEY_REFRESH_TOKEN)
-      prefs[KEY_ONBOARDING_COMPLETED] = false
+      prefs.remove(KEY_TRACKING_MODE)
     }
   }
 }
